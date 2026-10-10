@@ -1,0 +1,2 @@
+[functions.offerwall-callback]
+verify_jwt = false

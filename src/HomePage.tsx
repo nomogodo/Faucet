@@ -53,8 +53,8 @@ const coinRows = [
 
 const earnRows = [
   { icon: 'F', label: 'Faucets', detail: 'Recompensa diaria · puntos internos' },
-  { icon: 'O', label: 'Offerwalls y encuestas', detail: 'Tareas de proveedores asociados' },
-  { icon: '↗', label: 'Paid-to-click', detail: 'Campañas PTC y anuncios breves' },
+  { icon: 'O', label: 'Offerwalls y encuestas', detail: 'Aún sin proveedor · ninguna oferta activa' },
+  { icon: '↗', label: 'Paid-to-click', detail: 'Aún sin proveedor · ninguna campaña activa' },
 ]
 
 function StaticButton({ children, className = '', onClick }: {
@@ -287,10 +287,10 @@ export default function HomePage() {
 
           <article className="home-feature earn-feature-home">
             <div className="feature-heading"><span className="feature-icon coral-icon"><HandCoins size={17} /></span><span className="feature-label">EARN</span><span className="feature-top-mark">02</span></div>
-            <h3>Pequeñas tareas.<br />Recompensas reales.</h3>
-            <p>Faucets, encuestas, offerwalls y campañas PTC en un solo centro de ganancias.</p>
+            <h3>Tareas verificadas.<br />Puntos internos.</h3>
+            <p>El faucet diario y la tarea de perfil ya acreditan puntos internos. Las ofertas externas aún no están conectadas.</p>
             <div className="earn-preview-list">{earnRows.map((row) => <div className="earn-preview-row" key={row.label}><span>{row.icon}</span><div><strong>{row.label}</strong><small>{row.detail}</small></div><ArrowRight size={14} /></div>)}</div>
-            <StaticButton className="feature-action">Ganar cripto <ArrowRight size={14} /></StaticButton>
+            <StaticButton className="feature-action">Proveedores externos pendientes</StaticButton>
           </article>
 
           <article className="home-feature games-feature">

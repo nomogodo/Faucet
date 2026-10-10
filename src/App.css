@@ -233,6 +233,7 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .filter-tabs { display: flex; gap: 5px; margin: 23px 0 12px; border-bottom: 1px solid var(--line); }
 .filter-tabs button { padding: 9px 12px; border: 0; border-bottom: 2px solid transparent; color: #888a81; background: transparent; font-size: 10px; cursor: pointer; }
 .filter-tabs .filter-active { border-bottom-color: var(--lime); color: var(--lime); }
+.earn-provider-pending { display: flex; align-items: flex-start; gap: 13px; margin-top: 13px; padding: 17px; border: 1px solid var(--line); border-radius: 6px; color: #92948a; background: #171915; }.earn-provider-pending > svg { flex: none; margin-top: 2px; color: #9aaa7b; }.earn-provider-pending > div { display: grid; justify-items: start; gap: 7px; }.earn-provider-pending strong { color: #daddd2; font-size: 12px; }.earn-provider-pending p { max-width: 520px; margin: 0; font-size: 10px; line-height: 1.6; }
 .section-offers { border: 1px solid var(--line); border-radius: 6px; background: #171915; }
 .offer-card { width: 100%; min-height: 61px; display: flex; align-items: center; gap: 12px; padding: 9px 14px; border: 0; border-bottom: 1px solid #292b25; color: var(--text); text-align: left; background: transparent; cursor: pointer; }
 .offer-card:last-child { border: 0; }.offer-card:hover { background: #ffffff04; }
@@ -509,6 +510,7 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .asset-change.positive { color: #83d8e9; }
 .earn-feature-icon, .developer-icon, .modal-mark { border-color: #395d84; color: #8fc3ff; background: #6eafff13; }
 .filter-tabs .filter-active { border-bottom-color: #6eafff; color: #9dcaff; }
+.earn-provider-pending { border-color: #2c3f5b; background: #17253a; }.earn-provider-pending > svg { color: #8fc3ff; }.earn-provider-pending strong { color: #dfe9f5; }
 .swap-switch { border-color: #456589; color: #8fc3ff; background: #1b2d45; }
 .modal-backdrop { background: #07101dcc; }
 .demo-modal { border-color: #38506e; background: #17253a; }

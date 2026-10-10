@@ -9,7 +9,7 @@ import {
   ChevronDown, Clock3, Code2, Coins, Eye, EyeOff, Flame, Gamepad2, Gift, Grid2X2,
   HandCoins, History, Link2, Megaphone, Menu, MousePointerClick, Plus, Search,
   Settings, ShieldCheck, Sparkles, Ticket, TrendingUp, Trophy, UserRound, Users, WalletCards,
-  X, Zap,
+  X,
 } from 'lucide-react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import './App.css'
@@ -54,13 +54,6 @@ const assets = [
   { ticker: 'ETH', name: 'Ethereum', amount: '0.4820', value: '$1,384.26', price: '$2,872.12', change: '+1.82%', icon: 'Ξ', color: 'ethereum' },
   { ticker: 'USDT', name: 'Tether', amount: '842.50', value: '$842.50', price: '$1.00', change: '0.01%', icon: '₮', color: 'tether' },
   { ticker: 'SOL', name: 'Solana', amount: '2.184', value: '$312.64', price: '$143.15', change: '+5.68%', icon: '◎', color: 'solana' },
-]
-const earnItems = [
-  { name: 'SurveyTime', detail: 'Encuestas · 4–8 min', reward: '$0.42', tag: 'Rápida', icon: 'ST', tone: 'coral', category: 'Encuestas' },
-  { name: 'PixelPoint', detail: 'Completa una oferta', reward: '$1.85', tag: 'Popular', icon: 'P', tone: 'lime', category: 'Offerwall' },
-  { name: 'Daily Faucet', detail: 'Recompensa diaria', reward: '$0.03', tag: '1 min', icon: '◉', tone: 'blue', category: 'Faucets' },
-  { name: 'ClickBoost', detail: 'Anuncio patrocinado · 30 s', reward: '$0.02', tag: '30 s', icon: '↗', tone: 'coral', category: 'PTC' },
-  { name: 'LinkSprint', detail: 'Shortlink · 2 pasos', reward: '$0.06', tag: '2 min', icon: 'L', tone: 'blue', category: 'Shortlinks' },
 ]
 const heatmap = [
   0, 1, 2, 0, 3, 2, 1, 0, 1, 3, 2, 1, 0, 2, 3, 1, 0, 2, 1, 3, 3, 2, 1, 0, 1, 2, 3, 2,
@@ -183,8 +176,8 @@ export function DashboardPrototype() {
   const isOverview = activePage === 'Resumen'
   const searchResults = search.trim() ? [
     ...dashboardNav.flatMap((group) => group.items.map(({ label }) => ({ label, detail: 'Sección', page: label, query: '' }))),
-    { label: 'Earn', detail: 'Oportunidades', page: 'Earn', query: '' },
-    ...earnItems.map((item) => ({ label: item.name, detail: item.detail, page: 'Earn', query: item.name })),
+    { label: 'Earn', detail: 'Tareas y recompensas internas', page: 'Earn', query: '' },
+    ...['Faucets', 'Offerwalls', 'Shortlinks', 'PTC'].map((label) => ({ label, detail: label === 'Faucets' ? 'Puntos internos activos' : 'Proveedor pendiente', page: label, query: '' })),
   ].filter((result) => `${result.label} ${result.detail}`.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 6) : []
   return (
     <div className="app-shell">
@@ -246,7 +239,7 @@ export function DashboardPrototype() {
 
             <section className="clan-strip"><div className="clan-symbol"><Blocks size={19} /></div><div className="clan-copy"><span className="section-kicker">TU GREMIO</span><strong>Night Owls <span>· #14 global</span></strong></div><div className="clan-members"><span className="mini-avatar mini-a">J</span><span className="mini-avatar mini-b">K</span><span className="mini-avatar mini-c">S</span><span className="mini-avatar mini-more">+8</span></div><div className="clan-stat"><span>XP del gremio</span><strong>24,680 <small>/ 30,000</small></strong></div><button className="clan-open" aria-label="Abrir gremio" onClick={() => selectPage('Gremio')}><ArrowRight size={16} /></button></section>
             <footer className="page-footer"><span>© 2025 Faucet Protocol <i className="footer-dot" /> Vista previa del producto</span><span><button onClick={() => notify('Centro de ayuda demo')}>Ayuda</button><button onClick={() => notify('Estado: entorno de demostración')}>Estado del sistema <i className="status-dot" /></button></span></footer>
-          </> : activePage === 'Mercados' ? <Suspense fallback={<div className="market-loading-page"><span className="live-dot" />Conectando con Binance Spot...</div>}><MarketExplorer search={search} /></Suspense> : <SectionView key={activePage} page={activePage} onAction={openAction} onNavigate={selectPage} onAssetSelect={setSelectedAsset} search={search} earnFilter={earnFilter} setEarnFilter={setEarnFilter} />}
+          </> : activePage === 'Mercados' ? <Suspense fallback={<div className="market-loading-page"><span className="live-dot" />Conectando con Binance Spot...</div>}><MarketExplorer search={search} /></Suspense> : <SectionView key={activePage} page={activePage} onAction={openAction} onNavigate={selectPage} onAssetSelect={setSelectedAsset} earnFilter={earnFilter} setEarnFilter={setEarnFilter} />}
         </div>
       </main>
       <nav className="mobile-nav" aria-label="Navegación móvil">{['Resumen', 'Cartera', 'Faucets', 'Juegos'].map((label) => { const Icon = dashboardNav.flatMap((group) => group.items).find((item) => item.label === label)?.icon ?? Grid2X2; return <button key={label} className={activePage === label ? 'mobile-nav-active' : ''} onClick={() => selectPage(label)}><Icon size={19} /><span>{label}</span></button> })}</nav>
@@ -343,10 +336,10 @@ function SwapPreview() {
   </div>
 }
 
-function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFilter, setEarnFilter }: {
+function SectionView({ page, onAction, onNavigate, onAssetSelect, earnFilter, setEarnFilter }: {
   page: string; onAction: (action: string) => void; onNavigate: (page: string) => void
   onAssetSelect: (asset: (typeof assets)[number]) => void
-  search: string; earnFilter: string; setEarnFilter: (filter: string) => void
+  earnFilter: string; setEarnFilter: (filter: string) => void
 }) {
   const [selectedActivity, setSelectedActivity] = useState<{ mode: 'survey' | 'offer' | 'game'; title: string; detail: string; reward: string } | null>(null)
   const copy = sectionCopy[page] ?? sectionCopy.Earn
@@ -354,25 +347,16 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFi
     : page === 'Offerwalls' ? 'Offerwalls'
       : page === 'Shortlinks' ? 'Shortlinks'
         : page === 'PTC' ? 'PTC' : earnFilter
-  const filteredOffers = earnItems.filter((item) => {
-    const matchesSearch = `${item.name} ${item.detail}`.toLowerCase().includes(search.toLowerCase())
-    const matchesCategory = selectedEarnFilter === 'Para ti' || item.category === selectedEarnFilter || (selectedEarnFilter === 'Offerwalls' && item.category === 'Offerwall')
-    return matchesSearch && matchesCategory
-  })
   return <section className="section-view">
-    <div className="section-view-heading"><div><div className="eyebrow"><span className="live-dot" /> {copy.eyebrow} {page === 'Faucets' ? <span className="demo-tag">PUNTOS INTERNOS</span> : <span className="demo-tag">DEMO</span>}</div><h1>{copy.title}</h1><p>{copy.description}</p></div><button className="date-select" onClick={() => onNavigate('Resumen')}><Grid2X2 size={15} />Volver al resumen</button></div>
+    <div className="section-view-heading"><div><div className="eyebrow"><span className="live-dot" /> {copy.eyebrow} {page === 'Faucets' ? <span className="demo-tag">PUNTOS INTERNOS</span> : ['Offerwalls', 'Shortlinks', 'PTC'].includes(page) ? <span className="demo-tag">SIN CONECTAR</span> : <span className="demo-tag">DEMO</span>}</div><h1>{copy.title}</h1><p>{copy.description}</p></div><button className="date-select" onClick={() => onNavigate('Resumen')}><Grid2X2 size={15} />Volver al resumen</button></div>
     {selectedActivity ? <EarnPlayground {...selectedActivity} onBack={() => setSelectedActivity(null)} />
       : page === 'Faucets' ? <DailyFaucet />
       : page === 'Cartera' ? <><PointsWallet onNavigate={onNavigate} /><div className="notice-line"><ShieldCheck size={16} /><span>Los saldos y precios cripto siguientes son ilustrativos; no representan activos depositados ni retirables.</span></div><AssetPortfolio balanceVisible onSelect={onAssetSelect} /></>
       : page === 'Historial' ? <PointsWallet showHistory />
       : page === 'Earn' || ['Offerwalls', 'Shortlinks', 'PTC'].includes(page) ? <>
       {page === 'Earn' && <EarnTasks onNavigate={onNavigate} />}
-      {selectedEarnFilter !== 'Faucets' && <div className="earn-feature"><div className="earn-feature-icon"><Zap size={22} /></div><div><span className="section-kicker">RECOMPENSAS SEMANALES</span><h2>Hay nuevas formas de ganar.</h2><p>Completa tareas de proveedores asociados. Revisa siempre las condiciones antes de participar.</p></div><div className="earn-feature-amount"><span>Hasta</span><strong>$4.20</strong><small>estimado · demo</small></div></div>}
-      <div className="filter-tabs">{['Para ti', 'Encuestas', 'Faucets', 'Offerwalls', 'Shortlinks', 'PTC'].map((filter) => <button key={filter} className={selectedEarnFilter === filter ? 'filter-active' : ''} onClick={() => setEarnFilter(filter)}>{filter}</button>)}</div>
-      {page === 'Earn' && selectedEarnFilter === 'Faucets' ? <DailyFaucet /> : <>
-      <div className="section-offers">{filteredOffers.length ? filteredOffers.map((item) => <button className="offer-card" key={item.name} onClick={() => setSelectedActivity({ mode: item.category === 'Encuestas' ? 'survey' : 'offer', title: item.name, detail: item.detail, reward: item.reward })}><span className={`earn-brand ${item.tone}`}>{item.icon}</span><div><strong>{item.name}</strong><small>{item.detail}</small></div><span className="offer-tag">{item.tag}</span><strong className="offer-reward">{item.reward}</strong><ArrowRight size={16} /></button>) : <p className="empty-search">No encontramos ofertas para “{search}”.</p>}</div>
-      <div className="notice-line"><ShieldCheck size={16} /><span>Las ofertas las gestionan proveedores externos. Faucet no garantiza aprobación ni recompensa.</span></div>
-      </>}
+      {page === 'Earn' && <div className="filter-tabs">{['Para ti', 'Encuestas', 'Faucets', 'Offerwalls', 'Shortlinks', 'PTC'].map((filter) => <button key={filter} className={selectedEarnFilter === filter ? 'filter-active' : ''} onClick={() => setEarnFilter(filter)}>{filter}</button>)}</div>}
+      {selectedEarnFilter === 'Faucets' ? <DailyFaucet /> : <div className="earn-provider-pending" role="status"><ShieldCheck size={19} /><div><span className="section-kicker">{selectedEarnFilter === 'Para ti' ? 'PROVEEDORES EXTERNOS' : selectedEarnFilter.toUpperCase()}</span><strong>{selectedEarnFilter === 'Para ti' ? 'Las ofertas aún no están conectadas.' : `${selectedEarnFilter} todavía no disponible.`}</strong><p>No hay ofertas activas ni recompensas de terceros disponibles en esta categoría. Las tareas de puntos internos y el faucet diario sí funcionan.</p><button className="text-link" onClick={() => { setEarnFilter('Faucets'); onNavigate('Earn') }}>Ir al faucet de puntos internos <ArrowRight size={13} /></button></div></div>}
     </> : page === 'Swap' || page === 'Exchange' ? <SwapPreview />
       : page === 'Arcade' || page === 'Juegos' ? <><div className="game-grid">{[{ name: 'Dice', label: 'Lanza el dado · gratis', icon: '01', color: 'game-coral', ready: true }, { name: 'Mines', label: 'Tablero de 16 casillas', icon: '✳', color: 'game-yellow', ready: true }, { name: 'Plinko', label: 'Suelta una ficha · gratis', icon: '•••', color: 'game-blue', ready: true }, { name: 'Crash', label: 'En preparación', icon: '↗', color: 'game-lime', ready: false }, { name: 'Ruleta', label: 'En preparación', icon: '◉', color: 'game-blue', ready: false }, { name: 'Limbo', label: 'En preparación', icon: '↗', color: 'game-lime', ready: false }].map((game) => <button className="game-card" key={game.name} disabled={!game.ready} onClick={() => setSelectedActivity({ mode: 'game', title: game.name, detail: game.label, reward: 'Sin valor monetario' })}><span className={`game-art ${game.color}`}>{game.icon}</span><span className="game-meta"><strong>{game.name}</strong><small>{game.label}</small></span>{game.ready && <ArrowUpRight size={16} />}</button>)}</div><div className="notice-line"><ShieldCheck size={16} /><span>Juegos gratuitos de muestra. No aceptan apuestas ni entregan premios.</span></div></>
       : ['Anuncios', 'Anunciar', 'Campañas', 'Listings patrocinados'].includes(page) ? <><div className="ad-metrics">{[['IMPRESIONES DEMO', '24,680'], ['CTR ESTIMADO', '2.84%'], ['COSTE MEDIO', '$0.012']].map(([label, value]) => <div className="ad-metric" key={label}><span>{label}</span><strong>{value}</strong><small><Activity size={13} /> Campaña de muestra</small></div>)}</div><button className="campaign-cta" onClick={() => onAction(page === 'Listings patrocinados' ? 'Crear listing' : 'Crear campaña')}><span><Megaphone size={18} /><strong>{page === 'Listings patrocinados' ? 'Promociona tu faucet' : 'Configura tu primera campaña'}</strong><small>{page === 'Listings patrocinados' ? 'Ubicación destacada en el directorio · simulación' : 'PTC, banners y anuncios nativos · simulación'}</small></span><ArrowRight size={18} /></button></>
@@ -402,7 +386,7 @@ const moduleOptions: Record<string, { metric: string; value: string; caption: st
 
 type RewardLedgerEntry = {
   id: number
-  source_type: 'daily_faucet' | 'earn_task'
+  source_type: 'daily_faucet' | 'earn_task' | 'offerwall'
   points: number
   balance_after: number
   created_at: string
@@ -451,7 +435,7 @@ function PointsWallet({ showHistory = false, onNavigate }: { showHistory?: boole
     {showHistory && (loading
       ? <p className="reward-history-empty">Cargando movimientos…</p>
       : ledger.length
-        ? <div className="points-wallet-history">{ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : 'Tarea: perfil completo'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>)}</div>
+        ? <div className="points-wallet-history">{ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : entry.source_type === 'earn_task' ? 'Tarea: perfil completo' : 'Oferta de proveedor'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>)}</div>
         : !errorMessage && <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>)}
     {!showHistory && onNavigate && <button className="text-link points-wallet-link" onClick={() => onNavigate('Historial')}>Ver historial de puntos <ArrowRight size={13} /></button>}
   </section>
@@ -567,7 +551,7 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
     {hasSession && errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}
     {message && <p className="profile-feedback" role="status">{message}</p>}
     <p className="earn-task-disclaimer"><ShieldCheck size={14} />Puntos promocionales internos, sin valor monetario ni conversión o retiro en cripto.</p>
-    {hasSession && <div className="reward-history"><div className="reward-history-heading"><span className="section-kicker">ACTIVIDAD RECIENTE</span><strong>Historial de puntos</strong></div>{ledger.length ? ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : 'Tarea: perfil completo'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>) : <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>}</div>}
+    {hasSession && <div className="reward-history"><div className="reward-history-heading"><span className="section-kicker">ACTIVIDAD RECIENTE</span><strong>Historial de puntos</strong></div>{ledger.length ? ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : entry.source_type === 'earn_task' ? 'Tarea: perfil completo' : 'Oferta de proveedor'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>) : <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>}</div>}
   </section>
 }
 
