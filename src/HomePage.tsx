@@ -75,6 +75,7 @@ export default function HomePage() {
   const [authBusy, setAuthBusy] = useState(false)
   const [authError, setAuthError] = useState('')
   const [authMessage, setAuthMessage] = useState('')
+  const [canResendConfirmation, setCanResendConfirmation] = useState(false)
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
 
   useEffect(() => {
@@ -107,6 +108,7 @@ export default function HomePage() {
     setAuthMode(mode)
     setAuthError('')
     setAuthMessage('')
+    setCanResendConfirmation(false)
     setAuthOpen(true)
   }
 
@@ -119,6 +121,7 @@ export default function HomePage() {
     setAuthBusy(true)
     setAuthError('')
     setAuthMessage('')
+    setCanResendConfirmation(false)
     try {
       if (authMode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
@@ -151,7 +154,34 @@ export default function HomePage() {
         window.location.assign('/dashboard')
       }
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.')
+      const message = error instanceof Error ? error.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.'
+      if (authMode === 'login' && message.toLowerCase().includes('email not confirmed')) {
+        setAuthError('Tu correo todavía no está confirmado.')
+        setCanResendConfirmation(true)
+      } else {
+        setAuthError(message)
+      }
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const resendConfirmation = async () => {
+    if (!supabase || !authEmail.trim()) return
+    setAuthBusy(true)
+    setAuthError('')
+    setAuthMessage('')
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: authEmail.trim(),
+        options: { emailRedirectTo: window.location.origin },
+      })
+      if (error) throw error
+      setCanResendConfirmation(false)
+      setAuthMessage('Solicitud enviada. Revisa la bandeja de entrada y el spam.')
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'No se pudo reenviar el correo. Inténtalo de nuevo.')
     } finally {
       setAuthBusy(false)
     }
@@ -325,6 +355,7 @@ export default function HomePage() {
             {(authMode === 'signup' || authMode === 'update-password') && <label><span>{authMode === 'signup' ? 'Contraseña' : 'Nueva contraseña'}</span><div className="auth-input-wrap"><KeyRound size={15} /><input type={passwordVisible ? 'text' : 'password'} autoComplete="new-password" minLength={8} required value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Mínimo 8 caracteres" disabled={!isSupabaseConfigured || authBusy} /><button className="auth-password-toggle" type="button" aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setPasswordVisible(!passwordVisible)} disabled={!isSupabaseConfigured || authBusy}>{passwordVisible ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></label>}
             {authMode === 'login' && <button className="auth-text-button auth-forgot" type="button" onClick={() => { setAuthMode('recovery'); setAuthError(''); setAuthMessage('') }}>¿Olvidaste tu contraseña?</button>}
             {authError && <p className="auth-feedback auth-feedback-error" role="alert">{authError}</p>}
+            {canResendConfirmation && <button className="auth-text-button" type="button" disabled={authBusy || !authEmail.trim()} onClick={() => void resendConfirmation()}>{authBusy ? 'Enviando…' : 'Reenviar correo de verificación'}</button>}
             {authMessage && <p className="auth-feedback auth-feedback-success" role="status">{authMessage}</p>}
             <button className="auth-submit" type="submit" disabled={!isSupabaseConfigured || authBusy}>{authBusy ? 'Procesando…' : authMode === 'signup' ? 'Crear cuenta' : authMode === 'recovery' ? 'Enviar enlace' : authMode === 'update-password' ? 'Guardar contraseña' : 'Iniciar sesión'} <ArrowRight size={15} /></button>
           </form>
