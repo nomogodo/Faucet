@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import HomePage from './HomePage'
 import EarnPlayground from './EarnPlayground'
 import { supabase } from './lib/supabase'
@@ -116,19 +116,43 @@ export function DashboardPrototype() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [earnFilter, setEarnFilter] = useState('Para ti')
   const [search, setSearch] = useState('')
-  const [accountEmail, setAccountEmail] = useState('alex@example.com')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [accountEmail, setAccountEmail] = useState('Cuenta')
+  const [accountName, setAccountName] = useState('')
   const { address, chain, isConnected } = useAccount()
   const { connectors, connect, isPending, error: connectError } = useConnect()
   const { disconnect } = useDisconnect()
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+        setSearchOpen(true)
+      }
+      if (event.key === 'Escape') setSearchOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  useEffect(() => {
     if (!supabase) return
     let active = true
     void supabase.auth.getSession().then(({ data }) => {
-      if (active && data.session?.user.email) setAccountEmail(data.session.user.email)
+      if (!active) return
+      const user = data.session?.user
+      setAccountEmail(user?.email ?? 'Cuenta')
+      const displayName = user?.user_metadata?.display_name
+      setAccountName(typeof displayName === 'string' && displayName.trim() ? displayName.trim() : user?.email?.split('@')[0] ?? '')
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active && session?.user.email) setAccountEmail(session.user.email)
+      if (!active) return
+      const user = session?.user
+      setAccountEmail(user?.email ?? 'Cuenta')
+      const displayName = user?.user_metadata?.display_name
+      setAccountName(typeof displayName === 'string' && displayName.trim() ? displayName.trim() : user?.email?.split('@')[0] ?? '')
     })
     return () => {
       active = false
@@ -157,14 +181,19 @@ export function DashboardPrototype() {
     : ['Comprobar saldo disponible y red del activo.', 'Validar dirección de destino y comisión.', 'Revisar y confirmar desde un servicio seguro.']
   const isFundsAction = modal === 'Depositar' || modal === 'Retirar'
   const isOverview = activePage === 'Resumen'
+  const searchResults = search.trim() ? [
+    ...dashboardNav.flatMap((group) => group.items.map(({ label }) => ({ label, detail: 'Sección', page: label, query: '' }))),
+    { label: 'Earn', detail: 'Oportunidades', page: 'Earn', query: '' },
+    ...earnItems.map((item) => ({ label: item.name, detail: item.detail, page: 'Earn', query: item.name })),
+  ].filter((result) => `${result.label} ${result.detail}`.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 6) : []
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenuOpen ? 'sidebar-open' : ''}`}>
         <a className="brand" href="#inicio" onClick={() => selectPage('Resumen')} aria-label="Faucet, inicio">
           <span className="brand-mark"><span /></span><span className="brand-word">faucet<span className="brand-period">.</span></span><span className="brand-beta">BETA</span>
         </a>
-        <button className="workspace-switch" onClick={() => notify('Espacio personal · modo demo')}>
-          <span className="workspace-avatar">M</span><span className="workspace-copy"><strong>Mi espacio</strong><small>Cuenta personal</small></span><ChevronDown size={15} />
+        <button className="workspace-switch" aria-label="Abrir perfil de cuenta" onClick={() => selectPage('Perfil')}>
+          <span className="workspace-avatar">{accountEmail.slice(0, 1).toUpperCase()}</span><span className="workspace-copy"><strong>Mi espacio</strong><small>Cuenta personal</small></span><ChevronDown size={15} />
         </button>
         <nav className="side-nav" aria-label="Navegación del dashboard">
           {dashboardNav.map((group) => <div className="nav-group" key={group.group}>
@@ -173,7 +202,7 @@ export function DashboardPrototype() {
           </div>)}
         </nav>
         <div className="sidebar-bottom">
-          <div className="safety-card"><div className="safety-icon"><ShieldCheck size={16} /></div><div><strong>Cuenta protegida</strong><small>2FA activado</small></div><span className="status-dot" /></div>
+          <div className="safety-card"><div className="safety-icon"><ShieldCheck size={16} /></div><div><strong>Acceso protegido</strong><small>{supabase ? 'Sesión Supabase' : 'Vista local'}</small></div><span className="status-dot" /></div>
           <button className="profile-row" onClick={() => void signOut()}><span className="profile-avatar">{accountEmail.slice(0, 2).toUpperCase()}</span><span className="profile-copy"><strong>{accountEmail}</strong><small>{supabase ? 'Cerrar sesión' : 'Cuenta demo'}</small></span><ChevronDown size={15} /></button>
         </div>
       </aside>
@@ -184,7 +213,7 @@ export function DashboardPrototype() {
           <button className="icon-button mobile-menu-trigger" aria-label="Abrir menú" onClick={() => setMobileMenuOpen(true)}><Menu size={19} /></button>
           <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{activePage}</strong></div>
           <div className="topbar-actions">
-            <label className="search-field"><Search size={16} /><input aria-label="Buscar" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
+            <div className="search-wrap"><label className="search-field"><Search size={16} /><input ref={searchInputRef} aria-label="Buscar secciones y actividades" aria-expanded={searchOpen} aria-controls="dashboard-search-results" placeholder="Buscar..." value={search} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearch(event.target.value); setSearchOpen(true) }} onKeyDown={(event) => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector<HTMLButtonElement>('[data-search-result]')?.focus() } }} /><kbd>⌘ K</kbd></label>{searchOpen && search.trim() && <div className="search-results" id="dashboard-search-results" role="listbox" aria-label="Resultados de búsqueda">{searchResults.length ? searchResults.map((result) => <button data-search-result role="option" aria-selected="false" key={`${result.page}-${result.label}`} onClick={() => { selectPage(result.page); setSearch(result.query); setSearchOpen(false); searchInputRef.current?.blur() }}><span><strong>{result.label}</strong><small>{result.detail}</small></span><ArrowRight size={14} /></button>) : <p>No hay secciones u ofertas coincidentes.</p>}</div>}</div>
             <div className="notification-wrap">
               <button className="icon-button notification-button" aria-label="Centro de actividad" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsRead(true) }}><Bell size={17} />{!notificationsRead && <i />}</button>
               {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><div className="notification-item"><span className={`notification-state ${isConnected ? 'notification-state-ready' : ''}`} /><div><strong>{isConnected ? 'Wallet conectada' : 'Conecta una wallet'}</strong><small>{isConnected ? `${chain?.name ?? 'Red no identificada'} · ${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Consulta dirección y red; conexión de solo lectura.'}</small>{!isConnected && <button onClick={() => { setNotificationsOpen(false); setWalletDialogOpen(true) }}>Conectar wallet <ArrowRight size={13} /></button>}</div></div><div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Earn en preparación</strong><small>Encuestas y minijuegos son muestras; todavía no hay proveedores ni pagos conectados.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver actividades <ArrowRight size={13} /></button></div></div><div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
@@ -194,7 +223,7 @@ export function DashboardPrototype() {
         </header>
         <div className="page-content">
           {isOverview ? <>
-            <section className="welcome-row"><div><div className="eyebrow"><span className="live-dot" /> TU CENTRO FINANCIERO <span className="demo-tag">DEMO</span></div><h1>Buenos días, Alex <span className="wave">✳</span></h1><p className="welcome-subtitle">Tu actividad cripto, en un solo lugar.</p></div><label className="date-select"><Clock3 size={15} /><select aria-label="Periodo del portafolio" value={period} onChange={(event) => setPeriod(event.target.value as keyof typeof chartSets)}><option value="1D">Hoy</option><option value="1S">Últimos 7 días</option><option value="1M">Últimos 30 días</option><option value="1A">Último año</option></select><ChevronDown size={14} /></label></section>
+            <section className="welcome-row"><div><div className="eyebrow"><span className="live-dot" /> TU CENTRO FINANCIERO <span className="demo-tag">DEMO</span></div><h1>Buenos días, {accountName ? `${accountName[0].toUpperCase()}${accountName.slice(1)}` : 'bienvenido'} <span className="wave">✳</span></h1><p className="welcome-subtitle">Tu actividad cripto, en un solo lugar.</p></div><label className="date-select"><Clock3 size={15} /><select aria-label="Periodo del portafolio" value={period} onChange={(event) => setPeriod(event.target.value as keyof typeof chartSets)}><option value="1D">Hoy</option><option value="1S">Últimos 7 días</option><option value="1M">Últimos 30 días</option><option value="1A">Último año</option></select><ChevronDown size={14} /></label></section>
 
             <section className="hero-grid">
               <div className="balance-panel">
@@ -240,6 +269,28 @@ function AssetPortfolio({ balanceVisible, onSelect }: { balanceVisible: boolean;
   return <div className="asset-table"><div className="asset-head"><span>ACTIVO</span><span>PRECIO DEMO</span><span>BALANCE DEMO</span><span>CAMBIO</span><span /></div>{assets.map((asset) => <button key={asset.ticker} className="asset-row" onClick={() => onSelect(asset)}><span className="asset-name"><span className={`coin-icon ${asset.color}`}>{asset.icon}</span><span><strong>{asset.ticker}</strong><small>{asset.name}</small></span></span><span className="asset-price">{asset.price}</span><span className="asset-balance"><strong>{asset.amount} <small>{asset.ticker}</small></strong><em>{balanceVisible ? asset.value : '••••••'}</em></span><span className={`asset-change ${asset.change.startsWith('+') ? 'positive' : ''}`}>{asset.change}</span><ArrowRight className="asset-arrow" size={15} /></button>)}</div>
 }
 
+function SwapPreview() {
+  const [fromTicker, setFromTicker] = useState('BTC')
+  const [toTicker, setToTicker] = useState('ETH')
+  const [amount, setAmount] = useState('0.01')
+  const fromAsset = assets.find((asset) => asset.ticker === fromTicker) ?? assets[0]
+  const toAsset = assets.find((asset) => asset.ticker === toTicker) ?? assets[1]
+  const fromPrice = Number(fromAsset.price.replace(/[$,]/g, ''))
+  const toPrice = Number(toAsset.price.replace(/[$,]/g, ''))
+  const parsedAmount = Number(amount)
+  const estimate = Number.isFinite(parsedAmount) && parsedAmount > 0 ? (parsedAmount * fromPrice) / toPrice : 0
+  const rate = fromPrice / toPrice
+
+  return <div className="swap-demo">
+    <div className="swap-field"><span>DESDE · DEMO</span><div><select aria-label="Activo de origen" value={fromTicker} onChange={(event) => setFromTicker(event.target.value)}>{assets.map((asset) => <option key={asset.ticker} value={asset.ticker}>{asset.ticker} · {asset.name}</option>)}</select><span className="swap-balance">Balance demo: {fromAsset.amount}</span></div><input type="number" min="0" step="any" value={amount} onChange={(event) => setAmount(event.target.value)} aria-label={`Importe de ${fromTicker}`} /></div>
+    <button className="swap-switch" aria-label="Intercambiar activos" onClick={() => { setFromTicker(toTicker); setToTicker(fromTicker) }}><ArrowLeftRight size={17} /></button>
+    <div className="swap-field"><span>HACIA · ESTIMACIÓN</span><div><select aria-label="Activo de destino" value={toTicker} onChange={(event) => setToTicker(event.target.value)}>{assets.map((asset) => <option key={asset.ticker} value={asset.ticker}>{asset.ticker} · {asset.name}</option>)}</select><span className="swap-balance">Balance demo: {toAsset.amount}</span></div><output className="swap-estimate" aria-live="polite">{estimate.toFixed(toTicker === 'USDT' ? 2 : 6)} {toTicker}</output></div>
+    <div className="swap-rate"><span>Tipo ilustrativo</span><strong>1 {fromTicker} ≈ {rate.toFixed(4)} {toTicker}</strong><small>Precio fijo de muestra</small></div>
+    <div className="swap-unavailable"><ShieldCheck size={15} /><span>Las operaciones reales aún no están conectadas. Esta estimación no es ejecutable.</span></div>
+    <button className="modal-primary swap-submit" disabled>Operaciones no disponibles</button>
+  </div>
+}
+
 function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFilter, setEarnFilter }: {
   page: string; onAction: (action: string) => void; onNavigate: (page: string) => void
   onAssetSelect: (asset: (typeof assets)[number]) => void
@@ -265,7 +316,7 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFi
       <div className="filter-tabs">{['Para ti', 'Encuestas', 'Faucets', 'Offerwalls', 'Shortlinks', 'PTC'].map((filter) => <button key={filter} className={selectedEarnFilter === filter ? 'filter-active' : ''} onClick={() => setEarnFilter(filter)}>{filter}</button>)}</div>
       <div className="section-offers">{filteredOffers.length ? filteredOffers.map((item) => <button className="offer-card" key={item.name} onClick={() => setSelectedActivity({ mode: item.category === 'Encuestas' ? 'survey' : 'offer', title: item.name, detail: item.detail, reward: item.reward })}><span className={`earn-brand ${item.tone}`}>{item.icon}</span><div><strong>{item.name}</strong><small>{item.detail}</small></div><span className="offer-tag">{item.tag}</span><strong className="offer-reward">{item.reward}</strong><ArrowRight size={16} /></button>) : <p className="empty-search">No encontramos ofertas para “{search}”.</p>}</div>
       <div className="notice-line"><ShieldCheck size={16} /><span>Las ofertas las gestionan proveedores externos. Faucet no garantiza aprobación ni recompensa.</span></div>
-    </> : page === 'Swap' || page === 'Exchange' ? <div className="swap-demo"><div className="swap-field"><span>DESDE</span><div><span className="coin-icon bitcoin">₿</span><strong>BTC <small>Bitcoin</small></strong><span className="swap-balance">0.02481 BTC</span></div><input value="0.01000" readOnly aria-label="Importe de Bitcoin" /></div><button className="swap-switch" aria-label="Intercambiar activos" onClick={() => onAction('Cambiar dirección')}><ArrowLeftRight size={17} /></button><div className="swap-field"><span>HACIA</span><div><span className="coin-icon ethereum">Ξ</span><strong>ETH <small>Ethereum</small></strong><span className="swap-balance">0.4820 ETH</span></div><input value="≈ 0.2314" readOnly aria-label="Estimación de Ethereum" /></div><div className="swap-rate"><span>Tipo estimado</span><strong>1 BTC ≈ 23.14 ETH</strong><small>La cotización no es en vivo</small></div><button className="modal-primary swap-submit" onClick={() => onAction('Swap no disponible')}>Vista previa de swap <ArrowRight size={16} /></button></div>
+    </> : page === 'Swap' || page === 'Exchange' ? <SwapPreview />
       : page === 'Arcade' || page === 'Juegos' ? <><div className="game-grid">{[{ name: 'Dice', label: 'Lanza el dado · gratis', icon: '01', color: 'game-coral', ready: true }, { name: 'Mines', label: 'Tablero de 16 casillas', icon: '✳', color: 'game-yellow', ready: true }, { name: 'Plinko', label: 'Suelta una ficha · gratis', icon: '•••', color: 'game-blue', ready: true }, { name: 'Crash', label: 'En preparación', icon: '↗', color: 'game-lime', ready: false }, { name: 'Ruleta', label: 'En preparación', icon: '◉', color: 'game-blue', ready: false }, { name: 'Limbo', label: 'En preparación', icon: '↗', color: 'game-lime', ready: false }].map((game) => <button className="game-card" key={game.name} disabled={!game.ready} onClick={() => setSelectedActivity({ mode: 'game', title: game.name, detail: game.label, reward: 'Sin valor monetario' })}><span className={`game-art ${game.color}`}>{game.icon}</span><span className="game-meta"><strong>{game.name}</strong><small>{game.label}</small></span>{game.ready && <ArrowUpRight size={16} />}</button>)}</div><div className="notice-line"><ShieldCheck size={16} /><span>Juegos gratuitos de muestra. No aceptan apuestas ni entregan premios.</span></div></>
       : ['Anuncios', 'Anunciar', 'Campañas', 'Listings patrocinados'].includes(page) ? <><div className="ad-metrics">{[['IMPRESIONES DEMO', '24,680'], ['CTR ESTIMADO', '2.84%'], ['COSTE MEDIO', '$0.012']].map(([label, value]) => <div className="ad-metric" key={label}><span>{label}</span><strong>{value}</strong><small><Activity size={13} /> Campaña de muestra</small></div>)}</div><button className="campaign-cta" onClick={() => onAction(page === 'Listings patrocinados' ? 'Crear listing' : 'Crear campaña')}><span><Megaphone size={18} /><strong>{page === 'Listings patrocinados' ? 'Promociona tu faucet' : 'Configura tu primera campaña'}</strong><small>{page === 'Listings patrocinados' ? 'Ubicación destacada en el directorio · simulación' : 'PTC, banners y anuncios nativos · simulación'}</small></span><ArrowRight size={18} /></button></>
       : page === 'Temporada' ? <><div className="season-large"><div className="season-large-head"><span className="season-icon"><Trophy size={19} /></span><span className="season-live"><i /> EN CURSO</span><strong>19 días restantes</strong></div><h2>Ruta del explorador</h2><p>Completa actividades para progresar. En producción, cada misión tendrá reglas y recompensas publicadas.</p><div className="season-progress"><span style={{ width: '68%' }} /></div><div className="season-progress-copy"><span>Nivel 08 · 680 / 1,000 XP</span><span>Próxima recompensa: <strong>25 Sats demo</strong></span></div></div><div className="mission-row"><span className="mission-icon"><MousePointerClick size={17} /></span><div><strong>Completa 3 ofertas</strong><small>Progreso: 2 / 3 · +120 XP</small></div><span className="mission-reward">+120 XP</span><ArrowRight size={15} /></div><div className="mission-row"><span className="mission-icon mission-gift"><Gift size={17} /></span><div><strong>Visita la plataforma 5 días</strong><small>Progreso: 4 / 5 · +80 XP</small></div><span className="mission-reward">+80 XP</span><ArrowRight size={15} /></div></>
