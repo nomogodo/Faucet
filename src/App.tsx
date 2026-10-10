@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'rea
 import HomePage from './HomePage'
 import EarnPlayground from './EarnPlayground'
 import { supabase } from './lib/supabase'
+import { isWalletConnectConfigured } from './lib/wagmi'
 import {
   Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check, Copy,
   ChevronDown, Clock3, Code2, Coins, Eye, EyeOff, Flame, Gamepad2, Gift, Grid2X2,
@@ -121,8 +122,6 @@ export function DashboardPrototype() {
   const [accountEmail, setAccountEmail] = useState('Cuenta')
   const [accountName, setAccountName] = useState('')
   const { address, chain, isConnected } = useAccount()
-  const { connectors, connect, isPending, error: connectError } = useConnect()
-  const { disconnect } = useDisconnect()
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -255,14 +254,40 @@ export function DashboardPrototype() {
         </div>
       </main>
       <nav className="mobile-nav" aria-label="Navegación móvil">{['Resumen', 'Cartera', 'Faucets', 'Juegos'].map((label) => { const Icon = dashboardNav.flatMap((group) => group.items).find((item) => item.label === label)?.icon ?? Grid2X2; return <button key={label} className={activePage === label ? 'mobile-nav-active' : ''} onClick={() => selectPage(label)}><Icon size={19} /><span>{label}</span></button> })}</nav>
-      {walletDialogOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWalletDialogOpen(false) }}><section className="demo-modal wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setWalletDialogOpen(false)}><X size={18} /></button><span className="modal-mark"><WalletCards size={20} /></span><span className="section-kicker">{isConnected ? 'WALLET CONECTADA' : 'CONECTOR EVM'}</span><h2 id="wallet-dialog-title">{isConnected ? 'Tu wallet está conectada.' : 'Conecta tu wallet.'}</h2><p>{isConnected ? 'La app puede leer la dirección y la red activa. No firmará ni enviará transacciones.' : 'Autoriza la conexión en tu wallet. Solo leeremos la dirección y la red; no firmaremos ni enviaremos transacciones.'}</p>
-        {isConnected && address ? <><div className="wallet-detail-row"><span>Dirección</span><code>{address.slice(0, 10)}…{address.slice(-8)}</code><button className="wallet-copy-button" aria-label="Copiar dirección" title="Copiar dirección" onClick={copyWalletAddress}><Copy size={15} /></button></div><div className="wallet-detail-row"><span>Red activa</span><strong>{chain?.name ?? 'Red no reconocida'}</strong></div><div className="modal-note"><span className="status-dot" />Conexión de solo lectura. No se han solicitado permisos de firma.</div><button className="wallet-disconnect" onClick={() => { disconnect(); setWalletDialogOpen(false) }}>Desconectar wallet</button></> : <><div className="wallet-options">{connectors.map((connector) => <button className="wallet-option" key={connector.uid} disabled={isPending} onClick={() => connect({ connector })}><span className="wallet-option-icon"><WalletCards size={18} /></span><span className="wallet-option-copy"><strong>{connector.name === 'Injected' ? 'Wallet del navegador' : connector.name}</strong><small>MetaMask, Rabby, Coinbase Wallet y compatibles</small></span>{isPending ? <span className="wallet-pending">Conectando…</span> : <ArrowRight size={16} />}</button>)}</div>{connectError && <p className="wallet-error" role="alert">{/provider|not found/i.test(connectError.message) ? 'No se detectó una wallet EVM. Instala MetaMask u otra wallet compatible y vuelve a intentarlo.' : connectError.message}</p>}<div className="modal-note"><span className="status-dot" />Conectar no permite mover fondos ni firmar mensajes.</div></>}
-      </section></div>}
+      {walletDialogOpen && <WalletConnectionDialog address={address} chainName={chain?.name} isConnected={isConnected} onClose={() => setWalletDialogOpen(false)} onCopyAddress={copyWalletAddress} />}
       {selectedAsset && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedAsset(null) }}><section className="demo-modal asset-dialog" role="dialog" aria-modal="true" aria-labelledby="asset-dialog-title"><button className="modal-close" aria-label="Cerrar detalle de activo" onClick={() => setSelectedAsset(null)}><X size={18} /></button><span className={`coin-icon ${selectedAsset.color} asset-dialog-icon`}>{selectedAsset.icon}</span><span className="section-kicker">DETALLE DEL ACTIVO · DEMO</span><h2 id="asset-dialog-title">{selectedAsset.name}</h2><p>Datos de ejemplo. No representan saldos ni precios de una cuenta conectada.</p><div className="asset-detail-list"><div><span>Precio de referencia</span><strong>{selectedAsset.price}</strong></div><div><span>Balance de muestra</span><strong>{selectedAsset.amount} {selectedAsset.ticker}</strong></div><div><span>Valor estimado</span><strong>{selectedAsset.value}</strong></div><div><span>Variación ilustrativa 24 h</span><strong className={selectedAsset.change.startsWith('+') ? 'positive' : ''}>{selectedAsset.change}</strong></div></div><button className="modal-primary" onClick={() => { setSelectedAsset(null); selectPage('Depositar') }}>Ver opciones de depósito <ArrowRight size={15} /></button></section></div>}
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal('') }}><section className="demo-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setModal('')}><X size={18} /></button><span className="modal-mark"><ShieldCheck size={20} /></span><span className="section-kicker">{isFundsAction ? `${modal.toUpperCase()} · REQUISITOS` : 'ENTORNO DE DEMOSTRACIÓN'}</span><h2 id="modal-title">{modal}</h2><p>{modal === 'Depositar' ? 'Todavía no se generan direcciones de depósito: falta conectar un proveedor de custodia o infraestructura de wallets.' : modal === 'Retirar' ? 'Los retiros están deshabilitados hasta integrar saldos reales, verificación de seguridad y un servicio de transacciones.' : 'Esta acción todavía no está conectada a una wallet ni a servicios financieros. No se realizará ninguna transacción.'}</p>{isFundsAction && <ol className="action-checklist">{fundsActionSteps.map((step) => <li key={step}><span>{step}</span></li>)}</ol>}<div className="modal-note"><span className="status-dot" />{isFundsAction ? 'No se crearán direcciones ni se moverán fondos en esta vista.' : 'Tus fondos no están en riesgo en esta vista previa.'}</div><button className="modal-primary" onClick={() => setModal('')}>Cerrar <Check size={16} /></button></section></div>}
       <div className={`toast ${toast ? 'toast-visible' : ''}`} role="status" aria-live="polite"><Check size={15} />{toast}</div>
     </div>
   )
+}
+
+function WalletConnectionDialog({ address, chainName, isConnected, onClose, onCopyAddress }: {
+  address?: string
+  chainName?: string
+  isConnected: boolean
+  onClose: () => void
+  onCopyAddress: () => void
+}) {
+  const { connectors, connect, isPending, error } = useConnect()
+  const { disconnect } = useDisconnect()
+  const errorMessage = error?.message.toLowerCase().includes('user rejected')
+    ? 'Cancelaste la conexión en la wallet. Puedes elegir otra opción.'
+    : error
+      ? 'No se pudo abrir esa wallet. Prueba otra opción o abre la web en el navegador de la wallet.'
+      : ''
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="demo-modal wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title"><button className="modal-close" aria-label="Cerrar" onClick={onClose}><X size={18} /></button><span className="modal-mark"><WalletCards size={20} /></span><span className="section-kicker">{isConnected ? 'WALLET CONECTADA' : 'CONECTORES EVM'}</span><h2 id="wallet-dialog-title">{isConnected ? 'Tu wallet está conectada.' : 'Conecta tu wallet.'}</h2><p>{isConnected ? 'La app puede leer la dirección y la red activa. No firmará ni enviará transacciones.' : 'Elige una wallet y autoriza la conexión. Solo leeremos la dirección y la red; no firmaremos ni enviaremos transacciones.'}</p>
+    {isConnected && address ? <><div className="wallet-detail-row"><span>Dirección</span><code>{address.slice(0, 10)}…{address.slice(-8)}</code><button className="wallet-copy-button" aria-label="Copiar dirección" title="Copiar dirección" onClick={onCopyAddress}><Copy size={15} /></button></div><div className="wallet-detail-row"><span>Red activa</span><strong>{chainName ?? 'Red no reconocida'}</strong></div><div className="modal-note"><span className="status-dot" />Conexión de solo lectura. No se han solicitado permisos de firma.</div><button className="wallet-disconnect" onClick={() => { disconnect(); onClose() }}>Desconectar wallet</button></> : <><div className="wallet-options">{connectors.map((connector) => {
+      const name = connector.name
+      const lowerName = name.toLowerCase()
+      const description = lowerName.includes('metamask') ? 'Extensión o aplicación MetaMask'
+        : lowerName.includes('coinbase') ? 'Coinbase Wallet · extensión o aplicación'
+          : lowerName.includes('walletconnect') ? 'Escanea el QR con una wallet compatible'
+            : 'Rabby, Brave, Phantom y otras wallets del navegador'
+      return <button className="wallet-option" key={connector.uid} disabled={isPending} aria-busy={isPending} onClick={() => connect({ connector })}><span className="wallet-option-icon"><WalletCards size={18} /></span><span className="wallet-option-copy"><strong>{name}</strong><small>{description}</small></span>{isPending ? <span className="wallet-pending">Conectando…</span> : <ArrowRight size={16} />}</button>
+    })}</div>{errorMessage && <p className="wallet-error" role="alert">{errorMessage}</p>}{!isWalletConnectConfigured && <div className="wallet-setup-note"><strong>¿Conectar desde móvil con QR?</strong><span>Configura <code>VITE_WALLETCONNECT_PROJECT_ID</code> en Vercel para habilitar WalletConnect.</span></div>}<div className="modal-note"><span className="status-dot" />Conectar no permite mover fondos ni firmar mensajes.</div></>}
+  </section></div>
 }
 
 function AssetPortfolio({ balanceVisible, onSelect }: { balanceVisible: boolean; onSelect: (asset: (typeof assets)[number]) => void }) {

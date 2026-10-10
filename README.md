@@ -20,6 +20,8 @@ Verificaciones disponibles: `npm run build` y `npm run lint`. La build genera un
 3. En Supabase, habilita el proveedor Email en **Authentication → Providers** y configura las URLs de sitio/redirección para el origen local (`http://localhost:5173`) y el dominio de producción.
 4. Reinicia Vite. El indicador del pie de página consulta `profiles` y distingue conexión, migración pendiente y credenciales sin configurar.
 
+Para conectar wallets móviles mediante QR, crea un proyecto en Reown Cloud y añade `VITE_WALLETCONNECT_PROJECT_ID` a `.env.local` y a las variables de Vercel. Es un identificador público de la aplicación (`config`), no una contraseña; vuelve a desplegar tras guardarlo. MetaMask, Coinbase Wallet y proveedores EVM inyectados no requieren este ID.
+
 El cliente está en `src/lib/supabase.ts`. La home ya ofrece registro con email/contraseña, login, restablecimiento/cambio de contraseña, persistencia de sesión y cierre de sesión. Si el proveedor Email exige confirmación, el registro informa que debe confirmarse desde el correo. Solo se admite la clave pública publishable/anon en Vite; **nunca** pongas la `service_role` key en variables `VITE_*` ni en el navegador.
 
 ## Estado del producto
