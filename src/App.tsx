@@ -2,12 +2,13 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import HomePage from './HomePage'
 import { supabase } from './lib/supabase'
 import {
-  Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check,
+  Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check, Copy,
   ChevronDown, Clock3, Code2, Coins, Eye, EyeOff, Flame, Gamepad2, Gift, Grid2X2,
   HandCoins, History, Link2, Megaphone, Menu, MousePointerClick, Plus, Search,
   Settings, ShieldCheck, Sparkles, Ticket, TrendingUp, Trophy, UserRound, Users, WalletCards,
   X, Zap,
 } from 'lucide-react'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import './App.css'
 
 type NavItem = { label: string; icon: typeof Grid2X2 }
@@ -102,11 +103,15 @@ export function DashboardPrototype() {
   const [period, setPeriod] = useState<keyof typeof chartSets>('1S')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [modal, setModal] = useState('')
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [earnFilter, setEarnFilter] = useState('Para ti')
   const [search, setSearch] = useState('')
   const [accountEmail, setAccountEmail] = useState('alex@example.com')
+  const { address, chain, isConnected } = useAccount()
+  const { connectors, connect, isPending, error: connectError } = useConnect()
+  const { disconnect } = useDisconnect()
 
   useEffect(() => {
     if (!supabase) return
@@ -129,6 +134,10 @@ export function DashboardPrototype() {
   }
   const selectPage = (label: string) => { setActivePage(label); setMobileMenuOpen(false) }
   const openAction = (action: string) => setModal(action)
+  const copyWalletAddress = () => {
+    if (!address || !navigator.clipboard) return notify('No se pudo copiar la dirección.')
+    void navigator.clipboard.writeText(address).then(() => notify('Dirección copiada.')).catch(() => notify('No se pudo copiar la dirección.'))
+  }
   const signOut = async () => {
     if (!supabase) return notify('Supabase no está configurado.')
     const { error } = await supabase.auth.signOut()
@@ -165,7 +174,7 @@ export function DashboardPrototype() {
           <div className="topbar-actions">
             <label className="search-field"><Search size={16} /><input aria-label="Buscar" placeholder="Buscar..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
             <button className="icon-button notification-button" aria-label="Notificaciones" onClick={() => notify('No tienes notificaciones nuevas')}><Bell size={17} /><i /></button>
-            <button className="connect-button" onClick={() => openAction('Conectar wallet')}><span className="connect-indicator" />Conectar wallet</button>
+            <button className={`connect-button ${isConnected ? 'connect-button-active' : ''}`} onClick={() => setWalletDialogOpen(true)} aria-label={isConnected ? `Wallet conectada ${address}` : 'Conectar wallet'}><span className="connect-indicator" />{isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Conectar wallet'}</button>
           </div>
         </header>
         <div className="page-content">
@@ -202,6 +211,9 @@ export function DashboardPrototype() {
         </div>
       </main>
       <nav className="mobile-nav" aria-label="Navegación móvil">{['Resumen', 'Cartera', 'Faucets', 'Juegos'].map((label) => { const Icon = dashboardNav.flatMap((group) => group.items).find((item) => item.label === label)?.icon ?? Grid2X2; return <button key={label} className={activePage === label ? 'mobile-nav-active' : ''} onClick={() => selectPage(label)}><Icon size={19} /><span>{label}</span></button> })}</nav>
+      {walletDialogOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWalletDialogOpen(false) }}><section className="demo-modal wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setWalletDialogOpen(false)}><X size={18} /></button><span className="modal-mark"><WalletCards size={20} /></span><span className="section-kicker">{isConnected ? 'WALLET CONECTADA' : 'CONECTOR EVM'}</span><h2 id="wallet-dialog-title">{isConnected ? 'Tu wallet está conectada.' : 'Conecta tu wallet.'}</h2><p>{isConnected ? 'La app puede leer la dirección y la red activa. No firmará ni enviará transacciones.' : 'Autoriza la conexión en tu wallet. Solo leeremos la dirección y la red; no firmaremos ni enviaremos transacciones.'}</p>
+        {isConnected && address ? <><div className="wallet-detail-row"><span>Dirección</span><code>{address.slice(0, 10)}…{address.slice(-8)}</code><button className="wallet-copy-button" aria-label="Copiar dirección" title="Copiar dirección" onClick={copyWalletAddress}><Copy size={15} /></button></div><div className="wallet-detail-row"><span>Red activa</span><strong>{chain?.name ?? 'Red no reconocida'}</strong></div><div className="modal-note"><span className="status-dot" />Conexión de solo lectura. No se han solicitado permisos de firma.</div><button className="wallet-disconnect" onClick={() => { disconnect(); setWalletDialogOpen(false) }}>Desconectar wallet</button></> : <><div className="wallet-options">{connectors.map((connector) => <button className="wallet-option" key={connector.uid} disabled={isPending} onClick={() => connect({ connector })}><span className="wallet-option-icon"><WalletCards size={18} /></span><span className="wallet-option-copy"><strong>{connector.name === 'Injected' ? 'Wallet del navegador' : connector.name}</strong><small>MetaMask, Rabby, Coinbase Wallet y compatibles</small></span>{isPending ? <span className="wallet-pending">Conectando…</span> : <ArrowRight size={16} />}</button>)}</div>{connectError && <p className="wallet-error" role="alert">{/provider|not found/i.test(connectError.message) ? 'No se detectó una wallet EVM. Instala MetaMask u otra wallet compatible y vuelve a intentarlo.' : connectError.message}</p>}<div className="modal-note"><span className="status-dot" />Conectar no permite mover fondos ni firmar mensajes.</div></>}
+      </section></div>}
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal('') }}><section className="demo-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setModal('')}><X size={18} /></button><span className="modal-mark"><ShieldCheck size={20} /></span><span className="section-kicker">ENTORNO DE DEMOSTRACIÓN</span><h2 id="modal-title">{modal}</h2><p>Esta acción todavía no está conectada a una wallet ni a servicios financieros. No se realizará ninguna transacción.</p><div className="modal-note"><span className="status-dot" />Tus fondos no están en riesgo en esta vista previa.</div><button className="modal-primary" onClick={() => { setModal(''); notify('Vista previa: acción no ejecutada') }}>Entendido <Check size={16} /></button></section></div>}
       <div className={`toast ${toast ? 'toast-visible' : ''}`} role="status" aria-live="polite"><Check size={15} />{toast}</div>
     </div>
