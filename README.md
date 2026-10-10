@@ -1,6 +1,6 @@
 # Faucet Protocol
 
-Plataforma de micro-recompensas cripto con cartera, Earn, publicidad y funciones Social-Fi. La pantalla inicial actual es una **portada estática de producto** inspirada en las categorías públicas de FaucetPay, con controles deshabilitados para implementar sus flujos en siguientes etapas.
+Plataforma en desarrollo de recompensas y herramientas cripto. La autenticación, el faucet de puntos internos y las tareas verificadas funcionan al conectar Supabase; las demás secciones financieras y ofertas de proveedores continúan en vista de demostración.
 
 ## Ejecutar
 
@@ -16,7 +16,7 @@ Verificaciones disponibles: `npm run build` y `npm run lint`. La build genera un
 ## Conectar Supabase
 
 1. Crea un proyecto en Supabase y configura `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` (o la clave legacy `VITE_SUPABASE_ANON_KEY`) en `.env.local`, usando `.env.example` como referencia. `.env.local` está ignorado por Git.
-2. Ejecuta `supabase/migrations/202610100001_profiles.sql` en el SQL Editor del proyecto. La migración crea perfiles ligados a `auth.users`, activa RLS y limita lectura/edición al usuario autenticado.
+2. Ejecuta en orden `supabase/migrations/202610100001_profiles.sql`, `supabase/migrations/202610100002_daily_faucet.sql` y `supabase/migrations/202610100003_earn_tasks.sql` en el SQL Editor del proyecto. Las migraciones de recompensas activan RLS, crean la reclamación diaria y añaden tareas verificadas en el servidor.
 3. En Supabase, habilita el proveedor Email en **Authentication → Providers** y configura las URLs de sitio/redirección para el origen local (`http://localhost:5173`) y el dominio de producción.
 4. Reinicia Vite. El indicador del pie de página consulta `profiles` y distingue conexión, migración pendiente y credenciales sin configurar.
 
@@ -28,8 +28,9 @@ El cliente está en `src/lib/supabase.ts`. La home ya ofrece registro con email/
 
 - **Visible en home:** acceso visual a wallet multimoneda, Earn/faucets/offerwalls/PTC, juegos provably fair, swap, FEY y yield DeFi, temporada/gremios, anuncios, API, seguridad y analítica. Los botones están deshabilitados deliberadamente.
 - **Dashboard (`/dashboard`):** navegación por Resumen, Mercados, Cartera, depósitos, retiros, transferencias, exchange, historial, direcciones, Faucets, Offerwalls, Shortlinks, PTC, Juegos, Lotería, Staking, Afiliados, campañas, listings patrocinados, API, Perfil, Seguridad y Ajustes; incluye además Social-Fi. Login exitoso abre esta ruta. Las opciones muestran previews/demo hasta conectar los servicios correspondientes.
+- **Recompensas y tareas internas:** con Supabase y sesión iniciada, cada usuario puede reclamar 10 puntos cada 24 horas y una recompensa única de 25 puntos por verificar el correo y completar su nombre visible. El servidor valida los requisitos y acredita los puntos en la misma transacción que registra la tarea y una entrada de ledger inmutable. RLS limita la lectura al propietario; las tablas no permiten acreditar ni editar recompensas desde el navegador. Los puntos no son criptoactivos, no tienen valor monetario y no se pueden retirar ni transferir.
 - **Datos reales de mercado:** mini-gráfico BTC/USDT y cotizaciones BTC, ETH, SOL y DOGE vía Binance Spot. El explorador completo de pares permanece en `src/MarketExplorer.tsx`, pero no está conectado a la home.
-- **Pendiente:** autenticación y 2FA, ledger, custodia, depósitos/retiros, proveedores Earn, wallet connect, swap, juegos con dinero, datos de usuario, push, contratos, indexación blockchain y operaciones de backend.
+- **Pendiente para producción completa:** proveedor de offerwall/encuestas y PTC con callbacks firmados, ledger de doble entrada para activos, custodia, depósitos/retiros, wallet connect para uso de fondos, swap, juegos con dinero, moderación/antifraude, monitorización y operaciones de backend. Las ofertas de muestra actuales no acreditan recompensa real.
 - **Límite de seguridad:** no conectar fondos reales a esta UI. Antes hacen falta servicios, revisión legal, auditorías, controles operativos y conciliación.
 
 La home consulta endpoints públicos de Binance Spot (`/api/v3/ticker/24hr`, `/api/v3/klines`) y su WebSocket de velas. Los precios se refrescan cada 30 segundos; si el stream falla, el gráfico usa sondeo REST cada 15 segundos. El explorador separado carga los pares públicos y permite filtros. Las APIs pueden limitar tráfico o no estar disponibles en ciertas regiones. Para producción, mover estas consultas a un adaptador backend con caché, límites, monitorización y proveedor alternativo; validar los términos del proveedor.

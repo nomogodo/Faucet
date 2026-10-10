@@ -52,7 +52,7 @@ const coinRows = [
 ]
 
 const earnRows = [
-  { icon: 'F', label: 'Faucets', detail: 'Directorio · pagos verificados' },
+  { icon: 'F', label: 'Faucets', detail: 'Recompensa diaria · puntos internos' },
   { icon: 'O', label: 'Offerwalls y encuestas', detail: 'Tareas de proveedores asociados' },
   { icon: '↗', label: 'Paid-to-click', detail: 'Campañas PTC y anuncios breves' },
 ]

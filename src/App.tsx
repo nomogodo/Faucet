@@ -75,7 +75,7 @@ const sectionCopy: Record<string, { eyebrow: string; title: string; description:
   Exchange: { eyebrow: 'CONVERSIÓN', title: 'Exchange de criptomonedas.', description: 'Consulta los pares disponibles, el tipo de cambio y el coste antes de convertir.' },
   Historial: { eyebrow: 'ACTIVIDAD', title: 'Historial de transacciones.', description: 'Depósitos, retiros, transferencias, pagos y conversiones en orden cronológico.' },
   Direcciones: { eyebrow: 'WALLET · DIRECCIONES', title: 'Direcciones de depósito.', description: 'Gestiona las direcciones asociadas a tus activos y redes.' },
-  Faucets: { eyebrow: 'GANAR · FAUCETS', title: 'Directorio de faucets.', description: 'Encuentra sitios de recompensas, consulta monedas admitidas y pagos reportados.' },
+  Faucets: { eyebrow: 'GANAR · FAUCETS', title: 'Tu recompensa diaria.', description: 'Reclama puntos internos cada 24 horas. No son criptomonedas ni tienen valor monetario.' },
   Offerwalls: { eyebrow: 'GANAR · OFFERWALLS', title: 'Ofertas y encuestas.', description: 'Explora tareas de proveedores, requisitos y recompensas estimadas.' },
   Shortlinks: { eyebrow: 'GANAR · SHORTLINKS', title: 'Shortlinks disponibles.', description: 'Completa enlaces patrocinados y revisa el estado de tus recompensas.' },
   PTC: { eyebrow: 'GANAR · PUBLICIDAD', title: 'Paid-to-click.', description: 'Ve anuncios patrocinados y consulta la recompensa indicada por visita.' },
@@ -91,7 +91,7 @@ const sectionCopy: Record<string, { eyebrow: string; title: string; description:
   Seguridad: { eyebrow: 'CUENTA · SEGURIDAD', title: 'Protege tu cuenta.', description: 'Revisa autenticación, sesiones, 2FA y opciones de recuperación.' },
   Ajustes: { eyebrow: 'CUENTA · PREFERENCIAS', title: 'Ajustes de cuenta.', description: 'Configura idioma, notificaciones y preferencias de visualización.' },
   Mercados: { eyebrow: 'MERCADOS SPOT', title: 'Mercados cripto', description: 'Precios y velas de mercado en vivo desde Binance Spot.' },
-  Earn: { eyebrow: 'CENTRO DE RECOMPENSAS', title: 'Gana a tu ritmo.', description: 'Encuestas, faucets y tareas verificadas. Recompensas estimadas, sin promesas de rentabilidad.' },
+  Earn: { eyebrow: 'CENTRO DE RECOMPENSAS', title: 'Gana a tu ritmo.', description: 'Tareas internas verificables y actividades de proveedores, claramente diferenciadas.' },
   Swap: { eyebrow: 'CONVERSIÓN', title: 'Un activo. Otro activo.', description: 'Consulta una cotización de demostración. Las operaciones reales todavía no están habilitadas.' },
   Arcade: { eyebrow: 'JUEGO RESPONSABLE', title: 'Juega por diversión.', description: 'Esta vista previa no acepta apuestas ni distribuye premios. Los juegos con valor real requieren disponibilidad legal.' },
   Anuncios: { eyebrow: 'AD NETWORK', title: 'Tu audiencia, con intención.', description: 'Explora formatos y una estimación de campaña en modo demo.' },
@@ -197,7 +197,7 @@ export function DashboardPrototype() {
         <nav className="side-nav" aria-label="Navegación del dashboard">
           {dashboardNav.map((group) => <div className="nav-group" key={group.group}>
             <span className="nav-caption">{group.group}</span>
-            {group.items.map(({ label, icon: Icon }) => <button key={label} className={`nav-link ${activePage === label ? 'nav-link-active' : ''}`} onClick={() => selectPage(label)}><Icon size={16} strokeWidth={1.8} /><span>{label}</span>{label === 'Faucets' && <span className="nav-count">12</span>}</button>)}
+            {group.items.map(({ label, icon: Icon }) => <button key={label} className={`nav-link ${activePage === label ? 'nav-link-active' : ''}`} onClick={() => selectPage(label)}><Icon size={16} strokeWidth={1.8} /><span>{label}</span></button>)}
           </div>)}
         </nav>
         <div className="sidebar-bottom">
@@ -333,14 +333,18 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFi
     return matchesSearch && matchesCategory
   })
   return <section className="section-view">
-    <div className="section-view-heading"><div><div className="eyebrow"><span className="live-dot" /> {copy.eyebrow} <span className="demo-tag">DEMO</span></div><h1>{copy.title}</h1><p>{copy.description}</p></div><button className="date-select" onClick={() => onNavigate('Resumen')}><Grid2X2 size={15} />Volver al resumen</button></div>
+    <div className="section-view-heading"><div><div className="eyebrow"><span className="live-dot" /> {copy.eyebrow} {page === 'Faucets' ? <span className="demo-tag">PUNTOS INTERNOS</span> : <span className="demo-tag">DEMO</span>}</div><h1>{copy.title}</h1><p>{copy.description}</p></div><button className="date-select" onClick={() => onNavigate('Resumen')}><Grid2X2 size={15} />Volver al resumen</button></div>
     {selectedActivity ? <EarnPlayground {...selectedActivity} onBack={() => setSelectedActivity(null)} />
+      : page === 'Faucets' ? <DailyFaucet />
       : page === 'Cartera' ? <><div className="notice-line"><ShieldCheck size={16} /><span>Saldos y precios ilustrativos; esta cartera aún no consulta servicios financieros.</span></div><AssetPortfolio balanceVisible onSelect={onAssetSelect} /></>
-      : page === 'Earn' || ['Faucets', 'Offerwalls', 'Shortlinks', 'PTC'].includes(page) ? <>
-      <div className="earn-feature"><div className="earn-feature-icon"><Zap size={22} /></div><div><span className="section-kicker">RECOMPENSAS SEMANALES</span><h2>Hay nuevas formas de ganar.</h2><p>Completa tareas de proveedores asociados. Revisa siempre las condiciones antes de participar.</p></div><div className="earn-feature-amount"><span>Hasta</span><strong>$4.20</strong><small>estimado · demo</small></div></div>
+      : page === 'Earn' || ['Offerwalls', 'Shortlinks', 'PTC'].includes(page) ? <>
+      {page === 'Earn' && <EarnTasks onNavigate={onNavigate} />}
+      {selectedEarnFilter !== 'Faucets' && <div className="earn-feature"><div className="earn-feature-icon"><Zap size={22} /></div><div><span className="section-kicker">RECOMPENSAS SEMANALES</span><h2>Hay nuevas formas de ganar.</h2><p>Completa tareas de proveedores asociados. Revisa siempre las condiciones antes de participar.</p></div><div className="earn-feature-amount"><span>Hasta</span><strong>$4.20</strong><small>estimado · demo</small></div></div>}
       <div className="filter-tabs">{['Para ti', 'Encuestas', 'Faucets', 'Offerwalls', 'Shortlinks', 'PTC'].map((filter) => <button key={filter} className={selectedEarnFilter === filter ? 'filter-active' : ''} onClick={() => setEarnFilter(filter)}>{filter}</button>)}</div>
+      {page === 'Earn' && selectedEarnFilter === 'Faucets' ? <DailyFaucet /> : <>
       <div className="section-offers">{filteredOffers.length ? filteredOffers.map((item) => <button className="offer-card" key={item.name} onClick={() => setSelectedActivity({ mode: item.category === 'Encuestas' ? 'survey' : 'offer', title: item.name, detail: item.detail, reward: item.reward })}><span className={`earn-brand ${item.tone}`}>{item.icon}</span><div><strong>{item.name}</strong><small>{item.detail}</small></div><span className="offer-tag">{item.tag}</span><strong className="offer-reward">{item.reward}</strong><ArrowRight size={16} /></button>) : <p className="empty-search">No encontramos ofertas para “{search}”.</p>}</div>
       <div className="notice-line"><ShieldCheck size={16} /><span>Las ofertas las gestionan proveedores externos. Faucet no garantiza aprobación ni recompensa.</span></div>
+      </>}
     </> : page === 'Swap' || page === 'Exchange' ? <SwapPreview />
       : page === 'Arcade' || page === 'Juegos' ? <><div className="game-grid">{[{ name: 'Dice', label: 'Lanza el dado · gratis', icon: '01', color: 'game-coral', ready: true }, { name: 'Mines', label: 'Tablero de 16 casillas', icon: '✳', color: 'game-yellow', ready: true }, { name: 'Plinko', label: 'Suelta una ficha · gratis', icon: '•••', color: 'game-blue', ready: true }, { name: 'Crash', label: 'En preparación', icon: '↗', color: 'game-lime', ready: false }, { name: 'Ruleta', label: 'En preparación', icon: '◉', color: 'game-blue', ready: false }, { name: 'Limbo', label: 'En preparación', icon: '↗', color: 'game-lime', ready: false }].map((game) => <button className="game-card" key={game.name} disabled={!game.ready} onClick={() => setSelectedActivity({ mode: 'game', title: game.name, detail: game.label, reward: 'Sin valor monetario' })}><span className={`game-art ${game.color}`}>{game.icon}</span><span className="game-meta"><strong>{game.name}</strong><small>{game.label}</small></span>{game.ready && <ArrowUpRight size={16} />}</button>)}</div><div className="notice-line"><ShieldCheck size={16} /><span>Juegos gratuitos de muestra. No aceptan apuestas ni entregan premios.</span></div></>
       : ['Anuncios', 'Anunciar', 'Campañas', 'Listings patrocinados'].includes(page) ? <><div className="ad-metrics">{[['IMPRESIONES DEMO', '24,680'], ['CTR ESTIMADO', '2.84%'], ['COSTE MEDIO', '$0.012']].map(([label, value]) => <div className="ad-metric" key={label}><span>{label}</span><strong>{value}</strong><small><Activity size={13} /> Campaña de muestra</small></div>)}</div><button className="campaign-cta" onClick={() => onAction(page === 'Listings patrocinados' ? 'Crear listing' : 'Crear campaña')}><span><Megaphone size={18} /><strong>{page === 'Listings patrocinados' ? 'Promociona tu faucet' : 'Configura tu primera campaña'}</strong><small>{page === 'Listings patrocinados' ? 'Ubicación destacada en el directorio · simulación' : 'PTC, banners y anuncios nativos · simulación'}</small></span><ArrowRight size={18} /></button></>
@@ -366,6 +370,225 @@ const moduleOptions: Record<string, { metric: string; value: string; caption: st
   Perfil: { metric: 'CUENTA', value: 'Demo', caption: 'perfil no conectado', rows: [{ title: 'Información personal', detail: 'Nombre visible y correo', value: 'Editar' }, { title: 'Preferencias', detail: 'Idioma y moneda de visualización', value: 'Configurar' }] },
   Seguridad: { metric: 'PROTECCIÓN', value: '2FA', caption: 'ejemplo visual', rows: [{ title: 'Autenticación de dos factores', detail: 'Segundo factor para iniciar sesión', value: 'Revisar' }, { title: 'Sesiones activas', detail: 'Cierra sesiones que no reconozcas', value: '0 activas' }, { title: 'Historial de acceso', detail: 'Actividad reciente de cuenta', value: 'Consultar' }] },
   Ajustes: { metric: 'PREFERENCIAS', value: '3', caption: 'controles disponibles', rows: [{ title: 'Idioma', detail: 'Español', value: 'Cambiar' }, { title: 'Moneda de visualización', detail: 'USD', value: 'Cambiar' }, { title: 'Notificaciones', detail: 'Correo y alertas de cuenta', value: 'Configurar' }] },
+}
+
+function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
+  type LedgerEntry = { id: number; source_type: 'daily_faucet' | 'earn_task'; points: number; balance_after: number; created_at: string }
+  const [loading, setLoading] = useState(true)
+  const [hasSession, setHasSession] = useState(false)
+  const [completed, setCompleted] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [ledger, setLedger] = useState<LedgerEntry[]>([])
+  const [message, setMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      if (!supabase) {
+        if (active) {
+          setErrorMessage('Configura Supabase para usar tareas con recompensa.')
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) throw sessionError
+        if (!sessionData.session) {
+          if (active) {
+            setErrorMessage('Inicia sesión para participar en las tareas recompensadas.')
+            setLoading(false)
+          }
+          return
+        }
+        if (active) setHasSession(true)
+
+        const [accountResult, completionResult, ledgerResult] = await Promise.all([
+          supabase.from('daily_faucet_accounts').select('points').maybeSingle(),
+          supabase.from('earn_task_completions').select('task_key').eq('task_key', 'complete_profile').maybeSingle(),
+          supabase.from('reward_ledger').select('id, source_type, points, balance_after, created_at').order('created_at', { ascending: false }).limit(10),
+        ])
+        if (accountResult.error) throw accountResult.error
+        if (completionResult.error) throw completionResult.error
+        if (ledgerResult.error) throw ledgerResult.error
+        if (!active) return
+        setBalance(accountResult.data?.points ?? 0)
+        setCompleted(Boolean(completionResult.data))
+        setLedger(ledgerResult.data ?? [])
+      } catch {
+        if (active) setErrorMessage('No se pudo cargar el estado de las tareas. Comprueba que aplicaste todas las migraciones.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    void load()
+    return () => { active = false }
+  }, [])
+
+  const completeProfileTask = async () => {
+    if (!supabase || !hasSession || completed || busy) return
+    setBusy(true)
+    setMessage('')
+    setErrorMessage('')
+    try {
+      const { data, error } = await supabase.rpc('complete_earn_task', { task_key: 'complete_profile' })
+      if (error) {
+        if (error.code === '22023') {
+          setErrorMessage('Confirma tu correo y guarda un nombre visible en Perfil antes de reclamar esta recompensa.')
+          return
+        }
+        throw error
+      }
+      const result = data?.[0]
+      if (!result) throw new Error('El servidor no devolvió el estado de la tarea.')
+      setCompleted(true)
+      setBalance(result.balance)
+      if (result.awarded) {
+        const entry: LedgerEntry = {
+          id: -Date.now(),
+          source_type: 'earn_task',
+          points: result.reward,
+          balance_after: result.balance,
+          created_at: result.completed_at,
+        }
+        setLedger((entries) => [entry, ...entries].slice(0, 10))
+      }
+      setMessage(result.awarded ? `¡Tarea completada! +${result.reward} puntos internos.` : 'Esta tarea ya estaba completada.')
+    } catch {
+      setErrorMessage('No se pudo completar la tarea. Comprueba la conexión e inténtalo de nuevo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <section className="earn-tasks">
+    <div className="earn-tasks-heading"><div><span className="section-kicker">TAREAS CON RECOMPENSA INTERNA</span><h2>Progreso de tu cuenta</h2></div><span className="earn-tasks-balance">{balance === null ? '—' : balance.toLocaleString('es-ES')} puntos</span></div>
+    <div className="earn-task-row">
+      <span className="earn-task-number">01</span>
+      <div className="earn-task-copy"><strong>Completa tu perfil</strong><small>Confirma tu correo y añade un nombre visible en Perfil. Recompensa única.</small></div>
+      <span className="earn-task-reward">+25 puntos</span>
+      <button className="action-secondary" disabled={loading || busy || completed || !hasSession} onClick={() => void completeProfileTask()}>{loading ? 'Cargando…' : busy ? 'Verificando…' : completed ? 'Completada' : 'Reclamar'}</button>
+    </div>
+    <div className="earn-task-row">
+      <span className="earn-task-number">02</span>
+      <div className="earn-task-copy"><strong>Reclama el faucet diario</strong><small>Disponible cada 24 horas · una recompensa por cuenta.</small></div>
+      <span className="earn-task-reward">+10 puntos</span>
+      <button className="action-secondary" disabled={!hasSession} onClick={() => onNavigate('Faucets')}>Abrir faucet <ArrowRight size={13} /></button>
+    </div>
+    {!hasSession && !loading && <p className="earn-task-feedback" role="status">{errorMessage}<button className="text-link" onClick={() => window.location.assign('/?login=1')}>Iniciar sesión <ArrowRight size={13} /></button></p>}
+    {hasSession && errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}
+    {message && <p className="profile-feedback" role="status">{message}</p>}
+    <p className="earn-task-disclaimer"><ShieldCheck size={14} />Puntos promocionales internos, sin valor monetario ni conversión o retiro en cripto.</p>
+    {hasSession && <div className="reward-history"><div className="reward-history-heading"><span className="section-kicker">ACTIVIDAD RECIENTE</span><strong>Historial de puntos</strong></div>{ledger.length ? ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : 'Tarea: perfil completo'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>) : <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>}</div>}
+  </section>
+}
+
+function DailyFaucet() {
+  const [points, setPoints] = useState<number | null>(null)
+  const [lastClaimAt, setLastClaimAt] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [hasSession, setHasSession] = useState(false)
+  const [now, setNow] = useState(0)
+  const [feedback, setFeedback] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      if (!supabase) {
+        setErrorMessage('Conecta Supabase para activar las recompensas.')
+        setLoading(false)
+        return
+      }
+
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) throw sessionError
+        if (!sessionData.session) {
+          if (active) {
+            setErrorMessage('Inicia sesión para consultar y reclamar tus puntos.')
+            setLoading(false)
+          }
+          return
+        }
+        if (active) setHasSession(true)
+
+        const [accountResult, claimResult] = await Promise.all([
+          supabase.from('daily_faucet_accounts').select('points').maybeSingle(),
+          supabase.from('daily_faucet_claims').select('claimed_at').order('claimed_at', { ascending: false }).limit(1).maybeSingle(),
+        ])
+        if (accountResult.error) throw accountResult.error
+        if (claimResult.error) throw claimResult.error
+        if (!active) return
+        setPoints(accountResult.data?.points ?? 0)
+        setLastClaimAt(claimResult.data?.claimed_at ?? null)
+      } catch {
+        if (active) setErrorMessage('No se pudo cargar el saldo o el historial del faucet. Revisa la migración de Supabase e inténtalo de nuevo.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    void load()
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const nextClaimAt = lastClaimAt ? Date.parse(lastClaimAt) + 24 * 60 * 60 * 1000 : 0
+  const cooldownMs = Math.max(0, nextClaimAt - now)
+  const available = cooldownMs === 0
+  const countdown = `${Math.floor(cooldownMs / 3_600_000).toString().padStart(2, '0')}:${Math.floor((cooldownMs % 3_600_000) / 60_000).toString().padStart(2, '0')}:${Math.floor((cooldownMs % 60_000) / 1000).toString().padStart(2, '0')}`
+
+  const claimReward = async () => {
+    if (!supabase || !hasSession || busy || !available) return
+    setBusy(true)
+    setFeedback('')
+    setErrorMessage('')
+    try {
+      const { data, error } = await supabase.rpc('claim_daily_faucet')
+      if (error) throw error
+      const result = data?.[0]
+      if (!result) throw new Error('El servidor no devolvió el estado de la recompensa.')
+      setPoints(result.balance)
+      setLastClaimAt(result.last_claim_at)
+      setFeedback(result.claimed
+        ? `¡Recompensa acreditada! +${result.reward} puntos internos.`
+        : 'Esta cuenta ya reclamó la recompensa. Vuelve cuando termine el contador.')
+    } catch {
+      setErrorMessage('No se pudo reclamar la recompensa. Comprueba la conexión e inténtalo de nuevo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <section className="daily-faucet">
+    <div className="daily-faucet-card">
+      <div className="daily-faucet-icon"><Gift size={22} /></div>
+      <div className="daily-faucet-copy">
+        <span className="section-kicker">RECOMPENSA CADA 24 HORAS</span>
+        <h2>Reclama tus puntos diarios.</h2>
+        <p>Una recompensa fija, protegida por tu cuenta y acreditada en el servidor.</p>
+      </div>
+      <div className="daily-faucet-balance"><span>TU SALDO</span><strong>{points === null ? '—' : points.toLocaleString('es-ES')}</strong><small>puntos internos</small></div>
+    </div>
+    <div className="daily-faucet-action">
+      <div><strong>{loading ? 'Comprobando disponibilidad…' : available ? 'Tu recompensa está lista' : `Próxima recompensa en ${countdown}`}</strong><small>10 puntos internos · una reclamación cada 24 horas</small></div>
+      <button className="action-primary" disabled={loading || busy || !hasSession || !available} onClick={() => void claimReward()}>{busy ? 'Acreditando…' : available ? 'Reclamar 10 puntos' : 'Recompensa reclamada'}<Gift size={15} /></button>
+    </div>
+    {!hasSession && !loading && <p className="daily-faucet-message" role="status">{errorMessage}<button className="text-link" onClick={() => window.location.assign('/?login=1')}>Iniciar sesión <ArrowRight size={13} /></button></p>}
+    {hasSession && errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}
+    {feedback && <p className="profile-feedback" role="status">{feedback}</p>}
+    <div className="notice-line"><ShieldCheck size={16} /><span>Los puntos son promocionales: no son criptomonedas, no tienen valor monetario y no se pueden retirar ni transferir.</span></div>
+  </section>
 }
 
 function ModuleOverview({ page, onAction }: { page: string; onAction: (action: string) => void }) {
