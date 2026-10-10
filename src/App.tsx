@@ -737,6 +737,12 @@ function SecurityCenter() {
   const [qrCode, setQrCode] = useState('')
   const [secret, setSecret] = useState('')
   const [totpCode, setTotpCode] = useState('')
+  const [recoveryCodesRemaining, setRecoveryCodesRemaining] = useState<number | null>(null)
+  const [hasRecoveryCodes, setHasRecoveryCodes] = useState(false)
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
+  const [recoveryTotpCode, setRecoveryTotpCode] = useState('')
+  const [recoveryRefresh, setRecoveryRefresh] = useState(false)
+  const [recoveryStatusMessage, setRecoveryStatusMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -752,13 +758,33 @@ function SecurityCenter() {
     setPendingFactorId(totpFactors.find((factor) => factor.status === 'unverified')?.id ?? '')
   }
 
+  const refreshRecoveryStatus = async () => {
+    if (!supabase) return
+    const { data, error } = await supabase.auth.mfa.recoveryCodes.getStatus()
+    if (error) {
+      if (error.code === 'mfa_factor_not_found') {
+        setRecoveryCodesRemaining(0)
+        setHasRecoveryCodes(false)
+        setRecoveryStatusMessage('')
+        return
+      }
+      setRecoveryCodesRemaining(null)
+      setHasRecoveryCodes(false)
+      setRecoveryStatusMessage('No se pudo consultar el estado de los códigos. Comprueba que la versión y la configuración de Supabase Auth admiten códigos de recuperación.')
+      return
+    }
+    setRecoveryCodesRemaining(data.remaining)
+    setHasRecoveryCodes(true)
+    setRecoveryStatusMessage('')
+  }
+
   useEffect(() => {
     let active = true
     if (!supabase) return
     const client = supabase
     const load = async () => {
       try {
-        const [userResult] = await Promise.all([client.auth.getUser(), refreshFactors()])
+        const [userResult] = await Promise.all([client.auth.getUser(), refreshFactors(), refreshRecoveryStatus()])
         if (!active) return
         if (userResult.error) throw userResult.error
         setEmail(userResult.data.user?.email ?? '')
@@ -844,6 +870,50 @@ function SecurityCenter() {
     }
   }
 
+  const createRecoveryCodes = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !verifiedTotpFactors.length || busy) return
+    if (!recoveryRefresh || !/^\d{6}$/.test(recoveryTotpCode)) {
+      setRecoveryRefresh(true)
+      setErrorMessage('Introduce un código TOTP actual para confirmar la generación.')
+      return
+    }
+    const replacing = hasRecoveryCodes
+    if (replacing && !window.confirm('Regenerar los códigos invalidará inmediatamente todos los códigos de recuperación actuales. ¿Continuar?')) return
+    setBusy(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    setRecoveryCodes([])
+    try {
+      const { error: stepUpError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: verifiedTotpFactors[0].id,
+        code: recoveryTotpCode,
+      })
+      if (stepUpError) throw stepUpError
+
+      const result = replacing
+        ? await supabase.auth.mfa.recoveryCodes.regenerate()
+        : await supabase.auth.mfa.recoveryCodes.generate({ friendlyName: 'Faucet recovery codes' })
+      if (result.error) throw result.error
+      setRecoveryCodes(result.data.codes)
+      setRecoveryCodesRemaining(result.data.codes.length)
+      setHasRecoveryCodes(true)
+      setRecoveryTotpCode('')
+      setRecoveryRefresh(false)
+      setSuccessMessage('Guarda estos códigos ahora. No volverán a mostrarse y cada uno sirve una sola vez.')
+    } catch (error) {
+      setRecoveryRefresh(true)
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : ''
+      setErrorMessage(code === 'insufficient_aal'
+        ? 'La verificación TOTP no elevó la sesión a AAL2. Vuelve a introducir un código actual e inténtalo otra vez.'
+        : code === 'mfa_recovery_codes_enroll_not_enabled'
+          ? 'Supabase Auth no tiene habilitada la generación de códigos de recuperación para este proyecto.'
+          : 'No se pudieron generar los códigos. Comprueba el TOTP y la configuración de Supabase Auth.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const sendRecoveryEmail = async () => {
     if (!supabase || !email) return
     setBusy(true)
@@ -868,6 +938,18 @@ function SecurityCenter() {
       <button className="text-link mfa-cancel" disabled={busy} onClick={() => void removeTotpFactor(pendingFactorId)}>Cancelar configuración</button>
     </div>}
     {verifiedTotpFactors.map((factor) => <div className="security-actions" key={factor.id}><div><strong>{factor.friendlyName}</strong><small>Factor TOTP verificado.</small></div><button className="action-secondary" disabled={busy} onClick={() => void removeTotpFactor(factor.id)}>Eliminar</button></div>)}
+    {verifiedTotpFactors.length > 0 && <div className="mfa-recovery">
+      <div className="mfa-recovery-heading"><strong>Códigos de recuperación</strong><small>{recoveryCodesRemaining === null ? 'Estado desconocido' : `${recoveryCodesRemaining} códigos sin usar`} · cada código funciona una sola vez.</small></div>
+      {recoveryStatusMessage && <p className="profile-feedback-error" role="alert">{recoveryStatusMessage}</p>}
+      {recoveryCodes.length > 0 ? <>
+        <p role="alert">Guárdalos en un lugar seguro fuera de este dispositivo. Cualquiera que los obtenga podría acceder a tu cuenta.</p>
+        <div className="mfa-recovery-codes" aria-label="Códigos de recuperación">{recoveryCodes.map((code) => <code key={code}>{code.match(/.{1,4}/g)?.join('-') ?? code}</code>)}</div>
+        <button className="action-secondary" disabled={busy} onClick={() => { setRecoveryCodes([]); setSuccessMessage('Los códigos se han retirado de la pantalla.') }}>Ya los guardé</button>
+      </> : <form className="mfa-verify-form" onSubmit={(event) => void createRecoveryCodes(event)}>
+        {recoveryRefresh && <label><span>Confirma con tu app autenticadora</span><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={recoveryTotpCode} onChange={(event) => setRecoveryTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))} aria-label="Código TOTP para generar códigos de recuperación" /></label>}
+        <button className="action-secondary" type="submit" disabled={busy || loading || recoveryCodesRemaining === null}>{busy ? 'Generando…' : hasRecoveryCodes ? 'Regenerar códigos' : 'Generar códigos'}</button>
+      </form>}
+    </div>}
     <div className="security-actions"><div><strong>Restablecer contraseña</strong><small>Te enviaremos un enlace al correo de esta cuenta.</small></div><button className="action-secondary" disabled={loading || busy || !email} onClick={() => void sendRecoveryEmail()}>{busy ? 'Procesando…' : 'Enviar enlace'}</button></div>
     {errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}{successMessage && <p className="profile-feedback" role="status">{successMessage}</p>}
     <div className="module-preview-notice"><ShieldCheck size={15} />Al activar TOTP, se solicitará un código antes de abrir el dashboard en cada nuevo inicio de sesión.</div>
@@ -937,6 +1019,7 @@ function DashboardRoute() {
 
 function MfaChallenge({ onVerified }: { onVerified: () => void }) {
   const [factorId, setFactorId] = useState('')
+  const [verificationMode, setVerificationMode] = useState<'totp' | 'recovery'>('totp')
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -952,7 +1035,7 @@ function MfaChallenge({ onVerified }: { onVerified: () => void }) {
         const factor = data.totp.find((item) => item.status === 'verified')
         if (active) {
           setFactorId(factor?.id ?? '')
-          if (!factor) setErrorMessage('No se encontró un factor TOTP verificado. Contacta con soporte para recuperar el acceso.')
+          if (!factor && !data.recovery_code.length) setErrorMessage('No se encontró un factor verificado ni códigos de recuperación. Contacta con soporte para recuperar el acceso.')
         }
       } catch {
         if (active) setErrorMessage('No se pudo cargar tu factor de autenticación.')
@@ -966,20 +1049,26 @@ function MfaChallenge({ onVerified }: { onVerified: () => void }) {
 
   const verifyCode = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!supabase || !factorId || !/^\d{6}$/.test(code)) return
+    if (!supabase || (verificationMode === 'totp' && (!factorId || !/^\d{6}$/.test(code))) || (verificationMode === 'recovery' && !code.trim())) return
     setBusy(true)
     setErrorMessage('')
     try {
-      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code })
+      const { error } = verificationMode === 'totp'
+        ? await supabase.auth.mfa.challengeAndVerify({ factorId, code })
+        : await supabase.auth.mfa.recoveryCodes.verify({ code })
       if (error) throw error
       onVerified()
     } catch {
-      setErrorMessage('El código no es válido o ha caducado. Comprueba tu app autenticadora e inténtalo otra vez.')
+      setErrorMessage(verificationMode === 'totp'
+        ? 'El código no es válido o ha caducado. Comprueba tu app autenticadora e inténtalo otra vez.'
+        : 'El código de recuperación no es válido, ya se utilizó o no está habilitado. Comprueba el código e inténtalo otra vez.')
       setCode('')
     } finally {
       setBusy(false)
     }
   }
 
-  return <main className="mfa-gate"><form className="mfa-gate-card" onSubmit={(event) => void verifyCode(event)}><span className="module-preview-icon"><ShieldCheck size={20} /></span><span className="section-kicker">VERIFICACIÓN EN DOS PASOS</span><h1>Confirma que eres tú.</h1><p>Introduce el código actual de seis cifras de tu app autenticadora para continuar.</p><label><span>Código TOTP</span><input autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} /></label>{errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}<button className="action-primary" type="submit" disabled={loading || busy || !factorId || code.length !== 6}>{loading ? 'Cargando…' : busy ? 'Verificando…' : 'Verificar y continuar'}</button></form></main>
+  return <main className="mfa-gate"><form className="mfa-gate-card" onSubmit={(event) => void verifyCode(event)}><span className="module-preview-icon"><ShieldCheck size={20} /></span><span className="section-kicker">VERIFICACIÓN EN DOS PASOS</span><h1>Confirma que eres tú.</h1><p>{verificationMode === 'totp' ? 'Introduce el código actual de seis cifras de tu app autenticadora.' : 'Introduce uno de tus códigos de recuperación no utilizados.'}</p>
+    {factorId && <div className="mfa-mode-switch"><button type="button" className={verificationMode === 'totp' ? 'mfa-mode-active' : ''} onClick={() => { setVerificationMode('totp'); setCode(''); setErrorMessage('') }}>App autenticadora</button><button type="button" className={verificationMode === 'recovery' ? 'mfa-mode-active' : ''} onClick={() => { setVerificationMode('recovery'); setCode(''); setErrorMessage('') }}>Código de recuperación</button></div>}
+    <label><span>{verificationMode === 'totp' ? 'Código TOTP' : 'Código de recuperación'}</span><input autoFocus inputMode={verificationMode === 'totp' ? 'numeric' : 'text'} autoComplete={verificationMode === 'totp' ? 'one-time-code' : 'off'} pattern={verificationMode === 'totp' ? '[0-9]{6}' : undefined} maxLength={verificationMode === 'totp' ? 6 : 40} value={code} onChange={(event) => setCode(verificationMode === 'totp' ? event.target.value.replace(/\D/g, '').slice(0, 6) : event.target.value)} /></label>{errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}<button className="action-primary" type="submit" disabled={loading || busy || (verificationMode === 'totp' ? !factorId || code.length !== 6 : !code.trim())}>{loading ? 'Cargando…' : busy ? 'Verificando…' : 'Verificar y continuar'}</button></form></main>
 }

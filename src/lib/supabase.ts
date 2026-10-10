@@ -12,6 +12,7 @@ export const supabase = isSupabaseConfigured && projectUrl && publicKey
       autoRefreshToken: true,
       detectSessionInUrl: true,
       persistSession: true,
+      experimental: { recoveryCodes: true },
     },
   })
   : null
