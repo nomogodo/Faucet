@@ -227,6 +227,7 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .game-card { min-height: 144px; display: flex; align-items: flex-end; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 6px; color: var(--text); text-align: left; background: #191b17; cursor: pointer; }
 .game-card:hover { border-color: #4d5144; transform: translateY(-1px); }
+.game-card:disabled { cursor: not-allowed; opacity: .56; }
 .game-art { width: 66px; height: 66px; display: grid; place-items: center; border-radius: 5px; font: 500 24px var(--display); }
 .game-coral { color: #ffc1a7; background: linear-gradient(145deg, #55352d, #28201c); }.game-lime { color: #c2f886; background: linear-gradient(145deg, #34462b, #1b2119); }.game-blue { color: #94dcea; background: linear-gradient(145deg, #29434b, #1a2325); }.game-yellow { color: #eed580; background: linear-gradient(145deg, #4f4328, #252117); }
 .game-meta { flex: 1; display: grid; gap: 5px; margin-bottom: 4px; }.game-meta strong { color: #e3e4db; font: 500 14px var(--display); }.game-meta small { color: #85877d; font-size: 9px; }.game-card > svg { margin-bottom: 5px; color: #85877d; }
@@ -240,6 +241,45 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .demo-modal { width: min(100%, 390px); position: relative; padding: 24px; border: 1px solid #3b4035; border-radius: 8px; background: #1a1d17; box-shadow: 0 25px 80px #0009; animation: rise-in .2s ease-out; }
 .modal-close { width: 30px; height: 30px; position: absolute; top: 12px; right: 12px; display: grid; place-items: center; border: 0; border-radius: 4px; color: #9b9d93; background: transparent; cursor: pointer; }.modal-close:hover { color: white; background: #ffffff0a; }
 .modal-mark { width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 16px; border: 1px solid #475839; border-radius: 6px; color: var(--lime); background: #b4f36b12; }.demo-modal h2 { margin: 7px 0; color: #eceee4; font: 500 20px var(--display); }.demo-modal p { margin: 9px 0 16px; color: #999b91; font-size: 11px; line-height: 1.6; }.modal-note { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #34372f; border-radius: 4px; color: #a9ab9f; background: #141611; font-size: 9px; }.modal-primary { min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; padding: 0 12px; border: 1px solid var(--lime); border-radius: 4px; color: #15190f; background: var(--lime); font-size: 10px; font-weight: 700; cursor: pointer; }.demo-modal .modal-primary { width: 100%; }.modal-primary:hover { background: #c7ff89; }
+.activity-playground { padding: 18px; border: 1px solid var(--line); border-radius: 6px; background: #171915; }
+.activity-back { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; color: #9dcaff; background: transparent; font-size: 10px; cursor: pointer; }
+.activity-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin: 15px 0; }
+.activity-heading h2 { margin: 5px 0; color: #e8e9e0; font: 500 19px var(--display); }
+.activity-heading p, .activity-content > p { margin: 0; color: #92948a; font-size: 10px; line-height: 1.6; }
+.activity-status { flex: none; padding: 5px 8px; border: 1px solid #55513d; border-radius: 4px; color: #d9c88f; font-size: 9px; }
+.activity-content { padding: 16px; border: 1px solid var(--line); border-radius: 5px; background: #121e30; }
+.survey-progress { display: grid; grid-template-columns: 1fr auto; gap: 7px; color: #9eafc2; font-size: 9px; }
+.survey-progress > div { grid-column: 1 / -1; height: 4px; overflow: hidden; border-radius: 4px; background: #2c3f5b; }
+.survey-progress i { height: 100%; display: block; background: #77b6ff; transition: width .18s ease; }
+.survey-question { margin: 22px 0 13px; color: #e2eaf3; font-size: 14px; font-weight: 600; }
+.survey-answers { display: grid; gap: 7px; }
+.survey-answer { min-height: 39px; padding: 8px 11px; border: 1px solid #34465c; border-radius: 4px; color: #cad8e8; text-align: left; background: #17263a; font-size: 10px; cursor: pointer; }
+.survey-answer:hover, .survey-answer-selected { border-color: #77b6ff; background: #203751; }
+.activity-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; color: #98a8ba; font-size: 9px; }
+.activity-actions .action-primary, .playable-game .action-primary, .activity-complete .action-primary { min-height: 34px; }
+.activity-actions .action-primary:disabled { cursor: not-allowed; opacity: .5; }
+.activity-complete { display: grid; justify-items: start; gap: 9px; color: #a9c9eb; }
+.activity-complete h3, .activity-complete p { margin: 0; }
+.activity-complete h3 { color: #e2eaf3; font-size: 13px; }
+.activity-complete p { color: #a2b1c2; font-size: 10px; line-height: 1.6; }
+.game-safety-note { padding: 9px 11px; border: 1px solid #34465c; border-radius: 4px; color: #b6c8dc; background: #17263a; font-size: 9px; }
+.playable-game { display: grid; justify-items: center; gap: 12px; padding: 20px 0 4px; text-align: center; }
+.playable-game p { margin: 0; color: #b2c1d1; font-size: 10px; }
+.dice-result { width: 74px; aspect-ratio: 1; display: grid; place-items: center; border: 1px solid #4d6681; border-radius: 9px; color: #e3effc; background: linear-gradient(145deg, #29415c, #17263a); font: 500 32px var(--display); }
+.mines-status { min-height: 15px; }
+.mines-grid { display: grid; grid-template-columns: repeat(4, 48px); gap: 6px; }
+.mine-cell { width: 48px; aspect-ratio: 1; border: 1px solid #425b75; border-radius: 4px; color: #c4dcf5; background: #203751; font-size: 15px; cursor: pointer; }
+.mine-cell:hover:not(:disabled) { border-color: #91c2ff; background: #294765; }
+.mine-cell-safe { color: #b8e39a; background: #263c34; }
+.mine-cell-hit { color: #ffc0a9; background: #51352f; }
+.plinko-board { width: min(100%, 360px); min-height: 130px; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 13px; padding: 16px; border: 1px solid #34465c; border-radius: 5px; color: #9dcaff; background: repeating-linear-gradient(135deg, #17263a, #17263a 12px, #1a2b40 12px, #1a2b40 24px); }
+.plinko-board strong { width: 100%; color: #d9e5f2; font-size: 10px; }
+.activity-offer-content { display: grid; gap: 14px; }
+.activity-offer-content dl { display: grid; gap: 0; margin: 0; }
+.activity-offer-content dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #34465c; font-size: 10px; }
+.activity-offer-content dt { color: #9eafc2; }
+.activity-offer-content dd { margin: 0; color: #e0eaf5; text-align: right; }
+.activity-offer-content .game-safety-note { line-height: 1.5; }
 .connect-button-active .connect-indicator { background: #77b6ff; box-shadow: 0 0 0 3px #77b6ff24; }
 .wallet-options { display: grid; gap: 7px; margin: 16px 0 12px; }
 .wallet-option { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #354963; border-radius: 5px; color: #d8e6f5; text-align: left; background: #17263a; cursor: pointer; }
@@ -416,6 +456,15 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .modal-note { border-color: #30445f; background: #111d2f; }
 .toast { border-color: #38506e; color: #d4e6fb; background: #17263a; }
 .toast svg { color: #77b6ff; }
+
+@media (max-width: 560px) {
+  .activity-playground { padding: 12px; }
+  .activity-content { padding: 12px; }
+  .activity-heading { flex-direction: column; }
+  .activity-actions { align-items: flex-end; }
+  .activity-actions > span { max-width: 56%; line-height: 1.5; }
+  .mines-grid { grid-template-columns: repeat(4, minmax(0, 48px)); }
+}
 .module-preview-grid { display: grid; grid-template-columns: minmax(0, 1fr) 245px; gap: 13px; }
 .module-preview-panel, .module-summary-panel { border: 1px solid #2c3f5b; border-radius: 7px; background: linear-gradient(145deg, #17253a 0%, #121e30 75%); }
 .module-preview-panel { padding: 17px; }

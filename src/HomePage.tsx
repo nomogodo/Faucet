@@ -112,6 +112,21 @@ export default function HomePage() {
     setAuthOpen(true)
   }
 
+  const openWallet = async () => {
+    if (signedInEmail) {
+      window.location.assign('/dashboard')
+      return
+    }
+    if (supabase) {
+      const { data, error } = await supabase.auth.getSession()
+      if (!error && data.session) {
+        window.location.assign('/dashboard')
+        return
+      }
+    }
+    openAuth('signup')
+  }
+
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase) {
@@ -217,7 +232,7 @@ export default function HomePage() {
             <h1>Tu cripto.<br /><em>En movimiento.</em></h1>
             <p>Gana, guarda y mueve activos digitales desde un solo lugar. Una plataforma para usuarios, creadores y comunidades cripto.</p>
             <div className="hero-actions">
-              <StaticButton className="hero-primary" onClick={() => openAuth('signup')}>Abrir tu wallet <ArrowRight size={16} /></StaticButton>
+              <StaticButton className="hero-primary" onClick={() => void openWallet()}>Abrir tu wallet <ArrowRight size={16} /></StaticButton>
               <StaticButton className="hero-secondary">Ganar ahora <ArrowUpRight size={15} /></StaticButton>
             </div>
             <div className="hero-tertiary"><StaticButton>Explorar faucets <ArrowRight size={13} /></StaticButton><span>Sin custodia Web3 o cuenta tradicional</span></div>
