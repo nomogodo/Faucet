@@ -3,6 +3,7 @@ import HomePage from './HomePage'
 import EarnPlayground from './EarnPlayground'
 import { supabase } from './lib/supabase'
 import { isWalletConnectConfigured } from './lib/wagmi'
+import type { Session } from '@supabase/supabase-js'
 import {
   Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check, Copy,
   ChevronDown, Clock3, Code2, Coins, Eye, EyeOff, Flame, Gamepad2, Gift, Grid2X2,
@@ -68,12 +69,12 @@ const heatmap = [
   1, 2, 3, 0, 1, 2, 3, 2, 1, 0, 2, 3, 1, 2, 3, 1, 0, 1, 2, 3, 2, 1, 3, 2, 0, 1, 2, 3,
 ]
 const sectionCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
-  Cartera: { eyebrow: 'WALLET', title: 'Tu cartera cripto.', description: 'Consulta tus balances, direcciones y movimientos de activos desde un solo lugar.' },
+  Cartera: { eyebrow: 'WALLET', title: 'Tu cartera.', description: 'Consulta por separado tus puntos promocionales reales y los balances cripto que todavía son solo una demo.' },
   Depositar: { eyebrow: 'WALLET · ENTRADA', title: 'Depositar cripto.', description: 'Elige un activo y consulta la dirección de depósito y sus confirmaciones.' },
   Retirar: { eyebrow: 'WALLET · SALIDA', title: 'Retirar fondos.', description: 'Envía activos a una dirección externa con una revisión clara de red y comisión.' },
   Transferir: { eyebrow: 'WALLET · INTERNO', title: 'Transferir a un usuario.', description: 'Envía saldo a otra cuenta FaucetPay mediante transferencia interna.' },
   Exchange: { eyebrow: 'CONVERSIÓN', title: 'Exchange de criptomonedas.', description: 'Consulta los pares disponibles, el tipo de cambio y el coste antes de convertir.' },
-  Historial: { eyebrow: 'ACTIVIDAD', title: 'Historial de transacciones.', description: 'Depósitos, retiros, transferencias, pagos y conversiones en orden cronológico.' },
+  Historial: { eyebrow: 'ACTIVIDAD', title: 'Historial de recompensas.', description: 'Consulta acreditaciones de puntos registradas en el servidor. Los movimientos cripto todavía no están conectados.' },
   Direcciones: { eyebrow: 'WALLET · DIRECCIONES', title: 'Direcciones de depósito.', description: 'Gestiona las direcciones asociadas a tus activos y redes.' },
   Faucets: { eyebrow: 'GANAR · FAUCETS', title: 'Tu recompensa diaria.', description: 'Reclama puntos internos cada 24 horas. No son criptomonedas ni tienen valor monetario.' },
   Offerwalls: { eyebrow: 'GANAR · OFFERWALLS', title: 'Ofertas y encuestas.', description: 'Explora tareas de proveedores, requisitos y recompensas estimadas.' },
@@ -336,7 +337,8 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFi
     <div className="section-view-heading"><div><div className="eyebrow"><span className="live-dot" /> {copy.eyebrow} {page === 'Faucets' ? <span className="demo-tag">PUNTOS INTERNOS</span> : <span className="demo-tag">DEMO</span>}</div><h1>{copy.title}</h1><p>{copy.description}</p></div><button className="date-select" onClick={() => onNavigate('Resumen')}><Grid2X2 size={15} />Volver al resumen</button></div>
     {selectedActivity ? <EarnPlayground {...selectedActivity} onBack={() => setSelectedActivity(null)} />
       : page === 'Faucets' ? <DailyFaucet />
-      : page === 'Cartera' ? <><div className="notice-line"><ShieldCheck size={16} /><span>Saldos y precios ilustrativos; esta cartera aún no consulta servicios financieros.</span></div><AssetPortfolio balanceVisible onSelect={onAssetSelect} /></>
+      : page === 'Cartera' ? <><PointsWallet onNavigate={onNavigate} /><div className="notice-line"><ShieldCheck size={16} /><span>Los saldos y precios cripto siguientes son ilustrativos; no representan activos depositados ni retirables.</span></div><AssetPortfolio balanceVisible onSelect={onAssetSelect} /></>
+      : page === 'Historial' ? <PointsWallet showHistory />
       : page === 'Earn' || ['Offerwalls', 'Shortlinks', 'PTC'].includes(page) ? <>
       {page === 'Earn' && <EarnTasks onNavigate={onNavigate} />}
       {selectedEarnFilter !== 'Faucets' && <div className="earn-feature"><div className="earn-feature-icon"><Zap size={22} /></div><div><span className="section-kicker">RECOMPENSAS SEMANALES</span><h2>Hay nuevas formas de ganar.</h2><p>Completa tareas de proveedores asociados. Revisa siempre las condiciones antes de participar.</p></div><div className="earn-feature-amount"><span>Hasta</span><strong>$4.20</strong><small>estimado · demo</small></div></div>}
@@ -372,14 +374,70 @@ const moduleOptions: Record<string, { metric: string; value: string; caption: st
   Ajustes: { metric: 'PREFERENCIAS', value: '3', caption: 'controles disponibles', rows: [{ title: 'Idioma', detail: 'Español', value: 'Cambiar' }, { title: 'Moneda de visualización', detail: 'USD', value: 'Cambiar' }, { title: 'Notificaciones', detail: 'Correo y alertas de cuenta', value: 'Configurar' }] },
 }
 
+type RewardLedgerEntry = {
+  id: number
+  source_type: 'daily_faucet' | 'earn_task'
+  points: number
+  balance_after: number
+  created_at: string
+}
+
+function PointsWallet({ showHistory = false, onNavigate }: { showHistory?: boolean; onNavigate?: (page: string) => void }) {
+  const [loading, setLoading] = useState(true)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [ledger, setLedger] = useState<RewardLedgerEntry[]>([])
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      if (!supabase) {
+        setErrorMessage('Configura Supabase para consultar tu saldo de puntos.')
+        setLoading(false)
+        return
+      }
+
+      try {
+        const [accountResult, ledgerResult] = await Promise.all([
+          supabase.from('daily_faucet_accounts').select('points').maybeSingle(),
+          supabase.from('reward_ledger').select('id, source_type, points, balance_after, created_at').order('created_at', { ascending: false }).limit(50),
+        ])
+        if (accountResult.error) throw accountResult.error
+        if (ledgerResult.error) throw ledgerResult.error
+        if (!active) return
+        setBalance(accountResult.data?.points ?? 0)
+        setLedger(ledgerResult.data ?? [])
+      } catch {
+        if (active) setErrorMessage('No se pudo cargar el saldo o el historial de puntos. Revisa las migraciones de Supabase.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    void load()
+    return () => { active = false }
+  }, [])
+
+  const title = showHistory ? 'Movimientos de puntos' : 'Puntos promocionales'
+  return <section className="points-wallet">
+    <div className="points-wallet-summary"><div><span className="section-kicker">{showHistory ? 'LEDGER DE RECOMPENSAS' : 'SALDO INTERNO · NO ES CRIPTOMONEDA'}</span><h2>{title}</h2><p>Sin valor monetario, transferencias ni retiros.</p></div><strong>{loading ? '…' : balance === null ? '—' : balance.toLocaleString('es-ES')}<small> puntos</small></strong></div>
+    {errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}
+    {showHistory && (loading
+      ? <p className="reward-history-empty">Cargando movimientos…</p>
+      : ledger.length
+        ? <div className="points-wallet-history">{ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : 'Tarea: perfil completo'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>)}</div>
+        : !errorMessage && <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>)}
+    {!showHistory && onNavigate && <button className="text-link points-wallet-link" onClick={() => onNavigate('Historial')}>Ver historial de puntos <ArrowRight size={13} /></button>}
+  </section>
+}
+
 function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
-  type LedgerEntry = { id: number; source_type: 'daily_faucet' | 'earn_task'; points: number; balance_after: number; created_at: string }
   const [loading, setLoading] = useState(true)
   const [hasSession, setHasSession] = useState(false)
   const [completed, setCompleted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [balance, setBalance] = useState<number | null>(null)
-  const [ledger, setLedger] = useState<LedgerEntry[]>([])
+  const [ledger, setLedger] = useState<RewardLedgerEntry[]>([])
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -448,7 +506,7 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
       setCompleted(true)
       setBalance(result.balance)
       if (result.awarded) {
-        const entry: LedgerEntry = {
+        const entry: RewardLedgerEntry = {
           id: -Date.now(),
           source_type: 'earn_task',
           points: result.reward,
@@ -648,24 +706,117 @@ function SecurityCenter() {
   const [loading, setLoading] = useState(Boolean(supabase))
   const [email, setEmail] = useState('')
   const [emailConfirmed, setEmailConfirmed] = useState(false)
-  const [verifiedFactors, setVerifiedFactors] = useState<string[]>([])
+  const [verifiedTotpFactors, setVerifiedTotpFactors] = useState<{ id: string; friendlyName: string }[]>([])
+  const [pendingFactorId, setPendingFactorId] = useState('')
+  const [qrCode, setQrCode] = useState('')
+  const [secret, setSecret] = useState('')
+  const [totpCode, setTotpCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
+  const refreshFactors = async () => {
+    if (!supabase) return
+    const { data, error } = await supabase.auth.mfa.listFactors()
+    if (error) throw error
+    const totpFactors = data.all.filter((factor) => factor.factor_type === 'totp')
+    setVerifiedTotpFactors(totpFactors
+      .filter((factor) => factor.status === 'verified')
+      .map((factor) => ({ id: factor.id, friendlyName: factor.friendly_name ?? 'App autenticadora' })))
+    setPendingFactorId(totpFactors.find((factor) => factor.status === 'unverified')?.id ?? '')
+  }
+
   useEffect(() => {
     let active = true
     if (!supabase) return
-    void Promise.all([supabase.auth.getUser(), supabase.auth.mfa.listFactors()]).then(([userResult, factorResult]) => {
-      if (!active) return
-      if (userResult.error || factorResult.error) setErrorMessage('No se pudo cargar toda la información de seguridad.')
-      setEmail(userResult.data.user?.email ?? '')
-      setEmailConfirmed(Boolean(userResult.data.user?.email_confirmed_at))
-      setVerifiedFactors(factorResult.data?.all.filter((factor) => factor.status === 'verified').map((factor) => factor.factor_type) ?? [])
-      setLoading(false)
-    })
+    const client = supabase
+    const load = async () => {
+      try {
+        const [userResult] = await Promise.all([client.auth.getUser(), refreshFactors()])
+        if (!active) return
+        if (userResult.error) throw userResult.error
+        setEmail(userResult.data.user?.email ?? '')
+        setEmailConfirmed(Boolean(userResult.data.user?.email_confirmed_at))
+      } catch {
+        if (active) setErrorMessage('No se pudo cargar toda la información de seguridad.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void load()
     return () => { active = false }
   }, [])
+
+  const startTotpEnrollment = async () => {
+    if (!supabase || busy || pendingFactorId) return
+    setBusy(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: 'Faucet authenticator',
+        issuer: 'Faucet Protocol',
+      })
+      if (error) throw error
+      if (data.type !== 'totp') throw new Error('Supabase no devolvió un factor TOTP.')
+      setPendingFactorId(data.id)
+      setQrCode(data.totp.qr_code)
+      setSecret(data.totp.secret)
+      setSuccessMessage('Escanea el QR con una app autenticadora y confirma el código de seis cifras.')
+    } catch {
+      setErrorMessage('No se pudo iniciar la configuración MFA. Si ya hay una configuración pendiente, elimínala y vuelve a intentarlo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const verifyTotpEnrollment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !pendingFactorId || !/^\d{6}$/.test(totpCode)) {
+      setErrorMessage('Introduce el código de seis cifras de tu app autenticadora.')
+      return
+    }
+    setBusy(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: pendingFactorId, code: totpCode })
+      if (error) throw error
+      setQrCode('')
+      setSecret('')
+      setTotpCode('')
+      await refreshFactors()
+      setSuccessMessage('Autenticación en dos pasos activada.')
+    } catch {
+      setErrorMessage('No se pudo verificar el código. Comprueba la hora del dispositivo e inténtalo otra vez.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const removeTotpFactor = async (factorId: string) => {
+    if (!supabase || busy) return
+    if (!window.confirm('¿Eliminar este factor de autenticación? Asegúrate de conservar acceso a tu cuenta.')) return
+    setBusy(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId })
+      if (error) throw error
+      if (factorId === pendingFactorId) {
+        setQrCode('')
+        setSecret('')
+        setTotpCode('')
+      }
+      await refreshFactors()
+      setSuccessMessage('Factor de autenticación eliminado.')
+    } catch {
+      setErrorMessage('No se pudo eliminar el factor. Inténtalo de nuevo.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const sendRecoveryEmail = async () => {
     if (!supabase || !email) return
@@ -678,7 +829,23 @@ function SecurityCenter() {
     setBusy(false)
   }
 
-  return <div className="security-center"><section className="security-panel"><div className="security-panel-heading"><span className="module-preview-icon"><ShieldCheck size={18} /></span><div><span className="section-kicker">ESTADO DE LA CUENTA</span><h2>Seguridad</h2></div></div><div className="security-check-row"><span><strong>Correo electrónico</strong><small>{email || (loading ? 'Cargando…' : 'No disponible')}</small></span><em className={emailConfirmed ? 'security-good' : 'security-warn'}>{loading ? 'Comprobando' : emailConfirmed ? 'Verificado' : 'Sin verificar'}</em></div><div className="security-check-row"><span><strong>Segundo factor (MFA)</strong><small>{verifiedFactors.length ? verifiedFactors.join(', ') : loading ? 'Comprobando…' : 'No hay factores verificados'}</small></span><em className={verifiedFactors.length ? 'security-good' : 'security-warn'}>{loading ? 'Comprobando' : verifiedFactors.length ? 'Activo' : 'No configurado'}</em></div><div className="security-actions"><div><strong>Restablecer contraseña</strong><small>Te enviaremos un enlace al correo de esta cuenta.</small></div><button className="action-secondary" disabled={loading || busy || !email} onClick={() => void sendRecoveryEmail()}>{busy ? 'Enviando…' : 'Enviar enlace'}</button></div>{errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}{successMessage && <p className="profile-feedback" role="status">{successMessage}</p>}<div className="module-preview-notice"><ShieldCheck size={15} />El estado MFA se consulta en Supabase; esta vista no simula factores.</div></section></div>
+  return <div className="security-center"><section className="security-panel">
+    <div className="security-panel-heading"><span className="module-preview-icon"><ShieldCheck size={18} /></span><div><span className="section-kicker">ESTADO DE LA CUENTA</span><h2>Seguridad</h2></div></div>
+    <div className="security-check-row"><span><strong>Correo electrónico</strong><small>{email || (loading ? 'Cargando…' : 'No disponible')}</small></span><em className={emailConfirmed ? 'security-good' : 'security-warn'}>{loading ? 'Comprobando' : emailConfirmed ? 'Verificado' : 'Sin verificar'}</em></div>
+    <div className="security-check-row"><span><strong>Segundo factor (TOTP)</strong><small>{verifiedTotpFactors.length ? `${verifiedTotpFactors.length} app${verifiedTotpFactors.length === 1 ? '' : 's'} autenticadora${verifiedTotpFactors.length === 1 ? '' : 's'}` : loading ? 'Comprobando…' : 'No configurado'}</small></span><em className={verifiedTotpFactors.length ? 'security-good' : 'security-warn'}>{loading ? 'Comprobando' : verifiedTotpFactors.length ? 'Activo' : 'No configurado'}</em></div>
+    {!pendingFactorId && <div className="security-actions"><div><strong>App autenticadora</strong><small>Configura códigos TOTP de seis cifras para proteger el inicio de sesión.</small></div><button className="action-secondary" disabled={loading || busy || !supabase} onClick={() => void startTotpEnrollment()}>{busy ? 'Preparando…' : 'Configurar TOTP'}</button></div>}
+    {pendingFactorId && <div className="mfa-enrollment">
+      <div><strong>{qrCode ? 'Vincula tu app autenticadora' : 'Hay una configuración pendiente'}</strong><small>{qrCode ? 'Escanea el QR. Si no puedes, introduce la clave manualmente. No compartas esta clave.' : 'El QR solo se muestra al crear el factor. Elimina esta configuración pendiente para generar uno nuevo.'}</small></div>
+      {qrCode && <img className="mfa-qr" src={qrCode} alt="Código QR secreto para configurar TOTP" />}
+      {secret && <label className="mfa-secret"><span>Clave manual (secreta)</span><code>{secret}</code></label>}
+      <form className="mfa-verify-form" onSubmit={(event) => void verifyTotpEnrollment(event)}><label><span>Código de seis cifras</span><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={totpCode} onChange={(event) => setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6))} aria-label="Código TOTP de seis cifras" /></label><button className="action-primary" type="submit" disabled={busy || totpCode.length !== 6}>{busy ? 'Verificando…' : 'Verificar y activar'}</button></form>
+      <button className="text-link mfa-cancel" disabled={busy} onClick={() => void removeTotpFactor(pendingFactorId)}>Cancelar configuración</button>
+    </div>}
+    {verifiedTotpFactors.map((factor) => <div className="security-actions" key={factor.id}><div><strong>{factor.friendlyName}</strong><small>Factor TOTP verificado.</small></div><button className="action-secondary" disabled={busy} onClick={() => void removeTotpFactor(factor.id)}>Eliminar</button></div>)}
+    <div className="security-actions"><div><strong>Restablecer contraseña</strong><small>Te enviaremos un enlace al correo de esta cuenta.</small></div><button className="action-secondary" disabled={loading || busy || !email} onClick={() => void sendRecoveryEmail()}>{busy ? 'Procesando…' : 'Enviar enlace'}</button></div>
+    {errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}{successMessage && <p className="profile-feedback" role="status">{successMessage}</p>}
+    <div className="module-preview-notice"><ShieldCheck size={15} />Al activar TOTP, se solicitará un código antes de abrir el dashboard en cada nuevo inicio de sesión.</div>
+  </section></div>
 }
 
 export default function App() {
@@ -692,17 +859,35 @@ export default function App() {
 }
 
 function DashboardRoute() {
-  const [hasSession, setHasSession] = useState<boolean | null>(() => supabase ? null : import.meta.env.DEV)
+  const [authStatus, setAuthStatus] = useState<'loading' | 'signed-out' | 'ready' | 'mfa-required' | 'error'>(() => supabase ? 'loading' : import.meta.env.DEV ? 'ready' : 'signed-out')
 
   useEffect(() => {
     if (!supabase) return
+    const client = supabase
 
     let active = true
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) setHasSession(Boolean(data.session))
+    const checkSession = async (session: Session | null) => {
+      if (!session) {
+        if (active) setAuthStatus('signed-out')
+        return
+      }
+      try {
+        const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (error) throw error
+        if (active) setAuthStatus(data.nextLevel === 'aal2' && data.currentLevel !== 'aal2' ? 'mfa-required' : 'ready')
+      } catch {
+        if (active) setAuthStatus('error')
+      }
+    }
+    void client.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        if (active) setAuthStatus('error')
+        return
+      }
+      void checkSession(data.session)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setHasSession(Boolean(session))
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      queueMicrotask(() => { void checkSession(session) })
     })
 
     return () => {
@@ -712,12 +897,63 @@ function DashboardRoute() {
   }, [])
 
   useEffect(() => {
-    if (hasSession === false && !import.meta.env.DEV) {
+    if (authStatus === 'signed-out' && !import.meta.env.DEV) {
       window.location.replace('/?login=1')
     }
-  }, [hasSession])
+  }, [authStatus])
 
-  if (hasSession === null) return <div className="market-loading-page"><span className="live-dot" />Verificando sesión…</div>
-  if (!hasSession && !import.meta.env.DEV) return null
+  if (authStatus === 'loading') return <div className="market-loading-page"><span className="live-dot" />Verificando sesión…</div>
+  if (authStatus === 'mfa-required') return <MfaChallenge onVerified={() => setAuthStatus('ready')} />
+  if (authStatus === 'error') return <div className="market-loading-page" role="alert">No se pudo verificar el nivel de seguridad de la sesión. Recarga la página o vuelve a iniciar sesión.</div>
+  if (authStatus === 'signed-out' && !import.meta.env.DEV) return null
   return <DashboardPrototype />
+}
+
+function MfaChallenge({ onVerified }: { onVerified: () => void }) {
+  const [factorId, setFactorId] = useState('')
+  const [code, setCode] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      if (!supabase) return
+      try {
+        const { data, error } = await supabase.auth.mfa.listFactors()
+        if (error) throw error
+        const factor = data.totp.find((item) => item.status === 'verified')
+        if (active) {
+          setFactorId(factor?.id ?? '')
+          if (!factor) setErrorMessage('No se encontró un factor TOTP verificado. Contacta con soporte para recuperar el acceso.')
+        }
+      } catch {
+        if (active) setErrorMessage('No se pudo cargar tu factor de autenticación.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void load()
+    return () => { active = false }
+  }, [])
+
+  const verifyCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !factorId || !/^\d{6}$/.test(code)) return
+    setBusy(true)
+    setErrorMessage('')
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code })
+      if (error) throw error
+      onVerified()
+    } catch {
+      setErrorMessage('El código no es válido o ha caducado. Comprueba tu app autenticadora e inténtalo otra vez.')
+      setCode('')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <main className="mfa-gate"><form className="mfa-gate-card" onSubmit={(event) => void verifyCode(event)}><span className="module-preview-icon"><ShieldCheck size={20} /></span><span className="section-kicker">VERIFICACIÓN EN DOS PASOS</span><h1>Confirma que eres tú.</h1><p>Introduce el código actual de seis cifras de tu app autenticadora para continuar.</p><label><span>Código TOTP</span><input autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} /></label>{errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}<button className="action-primary" type="submit" disabled={loading || busy || !factorId || code.length !== 6}>{loading ? 'Cargando…' : busy ? 'Verificando…' : 'Verificar y continuar'}</button></form></main>
 }
