@@ -66,7 +66,7 @@ function StaticButton({ children, className = '', onClick }: {
 }
 
 export default function HomePage() {
-  const [authOpen, setAuthOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(() => new URLSearchParams(window.location.search).get('login') === '1')
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'recovery' | 'update-password'>('login')
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
@@ -76,6 +76,11 @@ export default function HomePage() {
   const [authError, setAuthError] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('login') !== '1') return
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [])
 
   useEffect(() => {
     if (!supabase) return

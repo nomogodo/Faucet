@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import HomePage from './HomePage'
+import { supabase } from './lib/supabase'
 import {
   Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check,
   ChevronDown, Clock3, Code2, Coins, Eye, EyeOff, Flame, Gamepad2, Gift, Grid2X2,
@@ -105,6 +106,22 @@ export function DashboardPrototype() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [earnFilter, setEarnFilter] = useState('Para ti')
   const [search, setSearch] = useState('')
+  const [accountEmail, setAccountEmail] = useState('alex@example.com')
+
+  useEffect(() => {
+    if (!supabase) return
+    let active = true
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session?.user.email) setAccountEmail(data.session.user.email)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active && session?.user.email) setAccountEmail(session.user.email)
+    })
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const notify = (message: string) => {
     setToast(message)
@@ -112,6 +129,12 @@ export function DashboardPrototype() {
   }
   const selectPage = (label: string) => { setActivePage(label); setMobileMenuOpen(false) }
   const openAction = (action: string) => setModal(action)
+  const signOut = async () => {
+    if (!supabase) return notify('Supabase no está configurado.')
+    const { error } = await supabase.auth.signOut()
+    if (error) return notify('No se pudo cerrar la sesión.')
+    window.location.replace('/?login=1')
+  }
   const isOverview = activePage === 'Resumen'
   return (
     <div className="app-shell">
@@ -130,7 +153,7 @@ export function DashboardPrototype() {
         </nav>
         <div className="sidebar-bottom">
           <div className="safety-card"><div className="safety-icon"><ShieldCheck size={16} /></div><div><strong>Cuenta protegida</strong><small>2FA activado</small></div><span className="status-dot" /></div>
-          <button className="profile-row" onClick={() => notify('Perfil de demostración')}><span className="profile-avatar">AL</span><span className="profile-copy"><strong>Alex Lee</strong><small>Nivel 08 · Explorer</small></span><ChevronDown size={15} /></button>
+          <button className="profile-row" onClick={() => void signOut()}><span className="profile-avatar">{accountEmail.slice(0, 2).toUpperCase()}</span><span className="profile-copy"><strong>{accountEmail}</strong><small>{supabase ? 'Cerrar sesión' : 'Cuenta demo'}</small></span><ChevronDown size={15} /></button>
         </div>
       </aside>
 
@@ -254,5 +277,36 @@ export default function App() {
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
-  return path === '/dashboard' ? <DashboardPrototype /> : <HomePage />
+  return path === '/dashboard' ? <DashboardRoute /> : <HomePage />
+}
+
+function DashboardRoute() {
+  const [hasSession, setHasSession] = useState<boolean | null>(() => supabase ? null : import.meta.env.DEV)
+
+  useEffect(() => {
+    if (!supabase) return
+
+    let active = true
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) setHasSession(Boolean(data.session))
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setHasSession(Boolean(session))
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (hasSession === false && !import.meta.env.DEV) {
+      window.location.replace('/?login=1')
+    }
+  }, [hasSession])
+
+  if (hasSession === null) return <div className="market-loading-page"><span className="live-dot" />Verificando sesión…</div>
+  if (!hasSession && !import.meta.env.DEV) return null
+  return <DashboardPrototype />
 }
