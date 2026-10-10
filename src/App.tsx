@@ -323,6 +323,7 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFi
       : page === 'Gremio' ? <div className="guild-panel"><div className="guild-banner"><div className="guild-emblem"><Blocks size={26} /></div><div><span className="section-kicker">GREMIO · #14 GLOBAL</span><h2>Night Owls</h2><p>Juntos desde hace 42 días</p></div><button className="action-secondary" onClick={() => onAction('Invitar al gremio')}><Users size={15} />Invitar</button></div><div className="guild-stats"><div><span>XP colectiva</span><strong>24,680 <small>/ 30,000</small></strong></div><div><span>Miembros activos</span><strong>12 <small>/ 20</small></strong></div><div><span>Posición semanal</span><strong>#14 <small>↑ 3</small></strong></div></div><div className="guild-footer"><span><Flame size={15} /> Racha de gremio: 8 días</span><button className="text-link" onClick={() => onAction('Tabla de posiciones')}>Ver tabla <ArrowRight size={14} /></button></div></div>
       : page === 'Desarrolladores' || page === 'API' ? <div className="developer-panel"><div className="developer-icon"><Code2 size={24} /></div><div><span className="section-kicker">API DE PAGOS</span><h2>Integra. Prueba. Lanza.</h2><p>Consulta documentación, crea credenciales de sandbox y simula webhooks cuando el portal esté conectado.</p><div className="developer-actions"><button className="action-primary" onClick={() => onAction('Documentación API')}><Code2 size={15} />Ver documentación</button><button className="action-secondary" onClick={() => onAction('Crear API key')}><Plus size={15} />Crear API key</button></div></div><div className="code-preview"><span><i /> SANDBOX · EJEMPLO</span><pre>{`POST /v1/payouts\nAuthorization: Bearer demo_key\n\n{\n  "asset": "USDT",\n  "amount": "1.50"\n}`}</pre></div></div>
       : page === 'Perfil' ? <AccountProfile />
+        : page === 'Seguridad' ? <SecurityCenter />
       : <ModuleOverview page={page} onAction={onAction} />}
   </section>
 }
@@ -393,6 +394,43 @@ function AccountProfile() {
   }
 
   return <div className="account-profile"><form className="profile-form" onSubmit={(event) => void saveProfile(event)}><div><span className="section-kicker">IDENTIDAD</span><h2>Tu perfil</h2><p>El nombre se guarda en los metadatos de tu cuenta de Supabase.</p></div><label><span>Correo electrónico</span><input type="email" value={email} readOnly placeholder={loading ? 'Cargando…' : 'No disponible'} /></label><label><span>Nombre visible</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} placeholder="Cómo te llamamos" disabled={loading || saving || !supabase} /></label>{errorMessage && <p className="profile-feedback profile-feedback-error" role="alert">{errorMessage}</p>}{successMessage && <p className="profile-feedback" role="status">{successMessage}</p>}<button className="action-primary" type="submit" disabled={loading || saving || !supabase}>{saving ? 'Guardando…' : 'Guardar cambios'}</button></form><aside className="profile-note"><ShieldCheck size={18} /><strong>Tu correo no se cambia desde este formulario</strong><p>Para modificar la dirección de acceso hará falta un flujo de verificación específico.</p></aside></div>
+}
+
+function SecurityCenter() {
+  const [loading, setLoading] = useState(Boolean(supabase))
+  const [email, setEmail] = useState('')
+  const [emailConfirmed, setEmailConfirmed] = useState(false)
+  const [verifiedFactors, setVerifiedFactors] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    if (!supabase) return
+    void Promise.all([supabase.auth.getUser(), supabase.auth.mfa.listFactors()]).then(([userResult, factorResult]) => {
+      if (!active) return
+      if (userResult.error || factorResult.error) setErrorMessage('No se pudo cargar toda la información de seguridad.')
+      setEmail(userResult.data.user?.email ?? '')
+      setEmailConfirmed(Boolean(userResult.data.user?.email_confirmed_at))
+      setVerifiedFactors(factorResult.data?.all.filter((factor) => factor.status === 'verified').map((factor) => factor.factor_type) ?? [])
+      setLoading(false)
+    })
+    return () => { active = false }
+  }, [])
+
+  const sendRecoveryEmail = async () => {
+    if (!supabase || !email) return
+    setBusy(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    if (error) setErrorMessage('No se pudo enviar el correo de recuperación. Revisa el SMTP y los límites de Supabase.')
+    else setSuccessMessage('Enlace solicitado. Revisa tu correo y la carpeta de spam.')
+    setBusy(false)
+  }
+
+  return <div className="security-center"><section className="security-panel"><div className="security-panel-heading"><span className="module-preview-icon"><ShieldCheck size={18} /></span><div><span className="section-kicker">ESTADO DE LA CUENTA</span><h2>Seguridad</h2></div></div><div className="security-check-row"><span><strong>Correo electrónico</strong><small>{email || (loading ? 'Cargando…' : 'No disponible')}</small></span><em className={emailConfirmed ? 'security-good' : 'security-warn'}>{loading ? 'Comprobando' : emailConfirmed ? 'Verificado' : 'Sin verificar'}</em></div><div className="security-check-row"><span><strong>Segundo factor (MFA)</strong><small>{verifiedFactors.length ? verifiedFactors.join(', ') : loading ? 'Comprobando…' : 'No hay factores verificados'}</small></span><em className={verifiedFactors.length ? 'security-good' : 'security-warn'}>{loading ? 'Comprobando' : verifiedFactors.length ? 'Activo' : 'No configurado'}</em></div><div className="security-actions"><div><strong>Restablecer contraseña</strong><small>Te enviaremos un enlace al correo de esta cuenta.</small></div><button className="action-secondary" disabled={loading || busy || !email} onClick={() => void sendRecoveryEmail()}>{busy ? 'Enviando…' : 'Enviar enlace'}</button></div>{errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}{successMessage && <p className="profile-feedback" role="status">{successMessage}</p>}<div className="module-preview-notice"><ShieldCheck size={15} />El estado MFA se consulta en Supabase; esta vista no simula factores.</div></section></div>
 }
 
 export default function App() {

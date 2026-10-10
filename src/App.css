@@ -522,6 +522,18 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .profile-note { align-content: start; color: #a9d0ff; font-size: 10px; }
 .profile-note strong { color: #dce7f3; }
 .profile-note p { color: #9aacc0; }
+.security-panel { width: min(100%, 720px); padding: 17px; border: 1px solid #2c3f5b; border-radius: 7px; background: linear-gradient(145deg, #17253a 0%, #121e30 75%); }
+.security-panel-heading { display: flex; align-items: center; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid #2d405c; }
+.security-panel-heading h2 { margin: 4px 0 0; color: #e3ecf8; font: 500 15px var(--display); }
+.security-check-row, .security-actions { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px; border-bottom: 1px solid #2a3b54; }
+.security-check-row > span, .security-actions > div { display: grid; gap: 5px; }
+.security-check-row strong, .security-actions strong { color: #dfe9f5; font-size: 10px; }
+.security-check-row small, .security-actions small { color: #91a3ba; font-size: 9px; }
+.security-check-row em { flex: none; padding: 4px 7px; border: 1px solid #55513d; border-radius: 4px; color: #dec78d; font-size: 8px; font-style: normal; }
+.security-check-row .security-good { border-color: #405b49; color: #b6dc9a; }
+.security-actions .action-secondary { flex: none; min-height: 32px; }
+.security-panel > .module-preview-notice { margin-top: 13px; }
+.security-panel > .profile-feedback, .security-panel > .profile-feedback-error { margin-top: 12px; }
 .module-preview-panel, .module-summary-panel { border: 1px solid #2c3f5b; border-radius: 7px; background: linear-gradient(145deg, #17253a 0%, #121e30 75%); }
 .module-preview-panel { padding: 17px; }
 .module-preview-heading { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #2d405c; }
