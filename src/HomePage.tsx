@@ -76,6 +76,7 @@ export default function HomePage() {
   const [authError, setAuthError] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [canResendConfirmation, setCanResendConfirmation] = useState(false)
+  const [authRedirect, setAuthRedirect] = useState('/dashboard')
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null)
 
   useEffect(() => {
@@ -127,6 +128,23 @@ export default function HomePage() {
     openAuth('signup')
   }
 
+  const openDashboardSection = async (section: string) => {
+    const destination = `/dashboard?section=${encodeURIComponent(section)}`
+    if (signedInEmail) {
+      window.location.assign(destination)
+      return
+    }
+    if (supabase) {
+      const { data, error } = await supabase.auth.getSession()
+      if (!error && data.session) {
+        window.location.assign(destination)
+        return
+      }
+    }
+    setAuthRedirect(destination)
+    openAuth('login')
+  }
+
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase) {
@@ -147,7 +165,7 @@ export default function HomePage() {
         if (error) throw error
         if (data.session) {
           setAuthMessage('Cuenta creada. Ya has iniciado sesión.')
-          window.location.assign('/dashboard')
+          window.location.assign(authRedirect)
         } else {
           setAuthMessage('Cuenta creada. Revisa tu correo para confirmar la dirección antes de iniciar sesión.')
         }
@@ -166,7 +184,7 @@ export default function HomePage() {
         const { error } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword })
         if (error) throw error
         setAuthMessage('Sesión iniciada correctamente.')
-        window.location.assign('/dashboard')
+        window.location.assign(authRedirect)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.'
@@ -218,7 +236,7 @@ export default function HomePage() {
           <span className="home-brand-tag">PROTOCOL</span>
         </div>
         <nav className="home-nav" aria-label="Secciones del producto">
-          <span>Ganar</span><span>Faucets</span><span>Juegos</span><span>Staking</span><span>Anunciar</span><span>API</span>
+          {[['Ganar', 'Earn'], ['Faucets', 'Faucets'], ['Juegos', 'Juegos'], ['Staking', 'Staking'], ['Anunciar', 'Anunciar'], ['API', 'API']].map(([label, section]) => <button key={section} onClick={() => void openDashboardSection(section)}>{label}</button>)}
         </nav>
         <div className="home-auth-actions">
           {signedInEmail ? <><span className="home-user-email">{signedInEmail}</span><StaticButton className="home-login" onClick={() => void signOut()}><LogOut size={13} />Salir</StaticButton></> : <><StaticButton className="home-login" onClick={() => openAuth('login')}>Iniciar sesión</StaticButton><StaticButton className="home-signup" onClick={() => openAuth('signup')}>Crear cuenta <ArrowRight size={14} /></StaticButton></>}
@@ -233,7 +251,7 @@ export default function HomePage() {
             <p>Gana, guarda y mueve activos digitales desde un solo lugar. Una plataforma para usuarios, creadores y comunidades cripto.</p>
             <div className="hero-actions">
               <StaticButton className="hero-primary" onClick={() => void openWallet()}>Abrir tu wallet <ArrowRight size={16} /></StaticButton>
-              <StaticButton className="hero-secondary">Ganar ahora <ArrowUpRight size={15} /></StaticButton>
+              <StaticButton className="hero-secondary" onClick={() => void openDashboardSection('Earn')}>Ganar ahora <ArrowUpRight size={15} /></StaticButton>
             </div>
             <div className="hero-tertiary"><StaticButton>Explorar faucets <ArrowRight size={13} /></StaticButton><span>Sin custodia Web3 o cuenta tradicional</span></div>
             <div className="hero-proof"><span><Check size={13} /> Pagos internos instantáneos</span><i /><span>20+ activos digitales</span><i /><span>Seguridad por diseño</span></div>

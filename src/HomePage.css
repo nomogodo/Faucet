@@ -21,7 +21,8 @@
 .home-brand-name span, .footer-brand > strong span { color: var(--home-lime); }
 .home-brand-tag { padding: 3px 5px; border: 1px solid #3b5271; border-radius: 3px; color: #a8c9f0; font-size: 8px; font-weight: 700; letter-spacing: .7px; }
 .home-nav { display: flex; align-items: center; gap: 26px; color: #aaada2; font-size: 10px; }
-.home-nav span { white-space: nowrap; }
+.home-nav button { padding: 5px 0; border: 0; color: inherit; white-space: nowrap; background: transparent; font: inherit; cursor: pointer; }
+.home-nav button:hover { color: #eef0e8; }
 .home-auth-actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .static-button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid #393d34; border-radius: 4px; color: #c8cbc0; background: #1b1e18; font-size: 10px; font-weight: 600; cursor: default; opacity: 1 !important; }
 .static-button:disabled { color: inherit; opacity: 1; }

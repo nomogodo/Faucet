@@ -100,7 +100,11 @@ const sectionCopy: Record<string, { eyebrow: string; title: string; description:
 }
 
 export function DashboardPrototype() {
-  const [activePage, setActivePage] = useState('Resumen')
+  const [activePage, setActivePage] = useState(() => {
+    const requestedPage = new URLSearchParams(window.location.search).get('section')
+    const availablePages = dashboardNav.flatMap((group) => group.items.map((item) => item.label))
+    return requestedPage && (availablePages.includes(requestedPage) || requestedPage === 'Earn') ? requestedPage : 'Resumen'
+  })
   const [period, setPeriod] = useState<keyof typeof chartSets>('1S')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [modal, setModal] = useState('')
