@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react'
 import HomePage from './HomePage'
 import EarnPlayground from './EarnPlayground'
 import { supabase } from './lib/supabase'
@@ -322,6 +322,7 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, search, earnFi
       : page === 'Temporada' ? <><div className="season-large"><div className="season-large-head"><span className="season-icon"><Trophy size={19} /></span><span className="season-live"><i /> EN CURSO</span><strong>19 días restantes</strong></div><h2>Ruta del explorador</h2><p>Completa actividades para progresar. En producción, cada misión tendrá reglas y recompensas publicadas.</p><div className="season-progress"><span style={{ width: '68%' }} /></div><div className="season-progress-copy"><span>Nivel 08 · 680 / 1,000 XP</span><span>Próxima recompensa: <strong>25 Sats demo</strong></span></div></div><div className="mission-row"><span className="mission-icon"><MousePointerClick size={17} /></span><div><strong>Completa 3 ofertas</strong><small>Progreso: 2 / 3 · +120 XP</small></div><span className="mission-reward">+120 XP</span><ArrowRight size={15} /></div><div className="mission-row"><span className="mission-icon mission-gift"><Gift size={17} /></span><div><strong>Visita la plataforma 5 días</strong><small>Progreso: 4 / 5 · +80 XP</small></div><span className="mission-reward">+80 XP</span><ArrowRight size={15} /></div></>
       : page === 'Gremio' ? <div className="guild-panel"><div className="guild-banner"><div className="guild-emblem"><Blocks size={26} /></div><div><span className="section-kicker">GREMIO · #14 GLOBAL</span><h2>Night Owls</h2><p>Juntos desde hace 42 días</p></div><button className="action-secondary" onClick={() => onAction('Invitar al gremio')}><Users size={15} />Invitar</button></div><div className="guild-stats"><div><span>XP colectiva</span><strong>24,680 <small>/ 30,000</small></strong></div><div><span>Miembros activos</span><strong>12 <small>/ 20</small></strong></div><div><span>Posición semanal</span><strong>#14 <small>↑ 3</small></strong></div></div><div className="guild-footer"><span><Flame size={15} /> Racha de gremio: 8 días</span><button className="text-link" onClick={() => onAction('Tabla de posiciones')}>Ver tabla <ArrowRight size={14} /></button></div></div>
       : page === 'Desarrolladores' || page === 'API' ? <div className="developer-panel"><div className="developer-icon"><Code2 size={24} /></div><div><span className="section-kicker">API DE PAGOS</span><h2>Integra. Prueba. Lanza.</h2><p>Consulta documentación, crea credenciales de sandbox y simula webhooks cuando el portal esté conectado.</p><div className="developer-actions"><button className="action-primary" onClick={() => onAction('Documentación API')}><Code2 size={15} />Ver documentación</button><button className="action-secondary" onClick={() => onAction('Crear API key')}><Plus size={15} />Crear API key</button></div></div><div className="code-preview"><span><i /> SANDBOX · EJEMPLO</span><pre>{`POST /v1/payouts\nAuthorization: Bearer demo_key\n\n{\n  "asset": "USDT",\n  "amount": "1.50"\n}`}</pre></div></div>
+      : page === 'Perfil' ? <AccountProfile />
       : <ModuleOverview page={page} onAction={onAction} />}
   </section>
 }
@@ -355,6 +356,43 @@ function ModuleOverview({ page, onAction }: { page: string; onAction: (action: s
     </div>
     <aside className="module-summary-panel"><span className="section-kicker">RESUMEN</span><strong>{module.value}</strong><small>{module.metric}</small><p>{module.caption}</p><div className="module-summary-foot"><span className="market-status-dot" /> Servicio en preparación</div></aside>
   </div>
+}
+
+function AccountProfile() {
+  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [loading, setLoading] = useState(Boolean(supabase))
+  const [saving, setSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    let active = true
+    if (!supabase) return
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (!active) return
+      if (error) setErrorMessage('No se pudo cargar el perfil.')
+      setEmail(data.user?.email ?? '')
+      const metadataName = data.user?.user_metadata?.display_name
+      setDisplayName(typeof metadataName === 'string' ? metadataName : '')
+      setLoading(false)
+    })
+    return () => { active = false }
+  }, [])
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase) return setErrorMessage('Supabase no está configurado.')
+    setSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    const { error } = await supabase.auth.updateUser({ data: { display_name: displayName.trim() || null } })
+    if (error) setErrorMessage('No se pudo guardar el nombre. Inténtalo de nuevo.')
+    else setSuccessMessage('Nombre actualizado.')
+    setSaving(false)
+  }
+
+  return <div className="account-profile"><form className="profile-form" onSubmit={(event) => void saveProfile(event)}><div><span className="section-kicker">IDENTIDAD</span><h2>Tu perfil</h2><p>El nombre se guarda en los metadatos de tu cuenta de Supabase.</p></div><label><span>Correo electrónico</span><input type="email" value={email} readOnly placeholder={loading ? 'Cargando…' : 'No disponible'} /></label><label><span>Nombre visible</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={50} placeholder="Cómo te llamamos" disabled={loading || saving || !supabase} /></label>{errorMessage && <p className="profile-feedback profile-feedback-error" role="alert">{errorMessage}</p>}{successMessage && <p className="profile-feedback" role="status">{successMessage}</p>}<button className="action-primary" type="submit" disabled={loading || saving || !supabase}>{saving ? 'Guardando…' : 'Guardar cambios'}</button></form><aside className="profile-note"><ShieldCheck size={18} /><strong>Tu correo no se cambia desde este formulario</strong><p>Para modificar la dirección de acceso hará falta un flujo de verificación específico.</p></aside></div>
 }
 
 export default function App() {
