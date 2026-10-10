@@ -216,7 +216,7 @@ export function DashboardPrototype() {
             <div className="search-wrap"><label className="search-field"><Search size={16} /><input ref={searchInputRef} aria-label="Buscar secciones y actividades" aria-expanded={searchOpen} aria-controls="dashboard-search-results" placeholder="Buscar..." value={search} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearch(event.target.value); setSearchOpen(true) }} onKeyDown={(event) => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector<HTMLButtonElement>('[data-search-result]')?.focus() } }} /><kbd>⌘ K</kbd></label>{searchOpen && search.trim() && <div className="search-results" id="dashboard-search-results" role="listbox" aria-label="Resultados de búsqueda">{searchResults.length ? searchResults.map((result) => <button data-search-result role="option" aria-selected="false" key={`${result.page}-${result.label}`} onClick={() => { selectPage(result.page); setSearch(result.query); setSearchOpen(false); searchInputRef.current?.blur() }}><span><strong>{result.label}</strong><small>{result.detail}</small></span><ArrowRight size={14} /></button>) : <p>No hay secciones u ofertas coincidentes.</p>}</div>}</div>
             <div className="notification-wrap">
               <button className="icon-button notification-button" aria-label="Centro de actividad" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsRead(true) }}><Bell size={17} />{!notificationsRead && <i />}</button>
-              {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><div className="notification-item"><span className={`notification-state ${isConnected ? 'notification-state-ready' : ''}`} /><div><strong>{isConnected ? 'Wallet conectada' : 'Conecta una wallet'}</strong><small>{isConnected ? `${chain?.name ?? 'Red no identificada'} · ${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Consulta dirección y red; conexión de solo lectura.'}</small>{!isConnected && <button onClick={() => { setNotificationsOpen(false); setWalletDialogOpen(true) }}>Conectar wallet <ArrowRight size={13} /></button>}</div></div><div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Earn en preparación</strong><small>Encuestas y minijuegos son muestras; todavía no hay proveedores ni pagos conectados.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver actividades <ArrowRight size={13} /></button></div></div><div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
+              {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><div className="notification-item"><span className={`notification-state ${isConnected ? 'notification-state-ready' : ''}`} /><div><strong>{isConnected ? 'Wallet conectada' : 'Conecta una wallet'}</strong><small>{isConnected ? `${chain?.name ?? 'Red no identificada'} · ${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Consulta dirección y red; conexión de solo lectura.'}</small>{!isConnected && <button onClick={() => { setNotificationsOpen(false); setWalletDialogOpen(true) }}>Conectar wallet <ArrowRight size={13} /></button>}</div></div><div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Proveedores Earn pendientes</strong><small>El faucet y la tarea de perfil acreditan puntos internos. Las ofertas externas todavía son demostraciones sin pagos.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver tareas <ArrowRight size={13} /></button></div></div><div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
             </div>
             <button className={`connect-button ${isConnected ? 'connect-button-active' : ''}`} onClick={() => setWalletDialogOpen(true)} aria-label={isConnected ? `Wallet conectada ${address}` : 'Conectar wallet'}><span className="connect-indicator" />{isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Conectar wallet'}</button>
           </div>
@@ -234,12 +234,7 @@ export function DashboardPrototype() {
                 <div className="chart-periods" role="group" aria-label="Periodo del gráfico">{(Object.keys(chartSets) as Array<keyof typeof chartSets>).map((item) => <button key={item} className={period === item ? 'period-active' : ''} onClick={() => setPeriod(item)}>{item}</button>)}</div>
                 <div className="balance-actions"><button className="action-primary" onClick={() => openAction('Depositar')}><ArrowDownLeft size={16} />Depositar</button><button className="action-secondary" onClick={() => openAction('Retirar')}><ArrowUpRight size={16} />Retirar</button><button className="action-secondary" onClick={() => selectPage('Swap')}><ArrowLeftRight size={16} />Swap</button><button className="action-more" aria-label="Más opciones" onClick={() => openAction('Más opciones')}><Plus size={18} /></button></div>
               </div>
-              <div className="earn-panel">
-                <div className="panel-heading"><div><span className="section-kicker">OPORTUNIDADES</span><h2>Earn hoy</h2></div><button className="text-link" onClick={() => selectPage('Earn')}>Ver todas <ArrowRight size={14} /></button></div>
-                <div className="earn-total"><span>Recompensas disponibles</span><strong>$8.40 <small>USD</small></strong></div><div className="earn-progress"><span style={{ width: '62%' }} /></div><div className="earn-progress-label"><span>Meta semanal</span><strong>$31.20 <em>/ $50</em></strong></div>
-                <div className="earn-list">{earnItems.map((item) => <button className="earn-row" key={item.name} onClick={() => openAction(`Oferta: ${item.name}`)}><span className={`earn-brand ${item.tone}`}>{item.icon}</span><span className="earn-info"><strong>{item.name}</strong><small>{item.detail}</small></span><span className="earn-reward">{item.reward}<small>{item.tag}</small></span><ArrowRight className="earn-arrow" size={14} /></button>)}</div>
-                <button className="earn-cta" onClick={() => selectPage('Earn')}><Sparkles size={15} />Explorar oportunidades <ArrowRight size={15} /></button>
-              </div>
+              <EarnSummary onNavigate={selectPage} />
             </section>
 
             <section className="portfolio-section"><div className="section-header"><div><span className="section-kicker">TUS ACTIVOS · DEMO</span><h2>Portafolio</h2></div><button className="view-all" onClick={() => selectPage('Cartera')}>Ver activos <ArrowRight size={14} /></button></div><AssetPortfolio balanceVisible={balanceVisible} onSelect={setSelectedAsset} /></section>
@@ -293,6 +288,37 @@ function WalletConnectionDialog({ address, chainName, isConnected, onClose, onCo
 
 function AssetPortfolio({ balanceVisible, onSelect }: { balanceVisible: boolean; onSelect: (asset: (typeof assets)[number]) => void }) {
   return <div className="asset-table"><div className="asset-head"><span>ACTIVO</span><span>PRECIO DEMO</span><span>BALANCE DEMO</span><span>CAMBIO</span><span /></div>{assets.map((asset) => <button key={asset.ticker} className="asset-row" onClick={() => onSelect(asset)}><span className="asset-name"><span className={`coin-icon ${asset.color}`}>{asset.icon}</span><span><strong>{asset.ticker}</strong><small>{asset.name}</small></span></span><span className="asset-price">{asset.price}</span><span className="asset-balance"><strong>{asset.amount} <small>{asset.ticker}</small></strong><em>{balanceVisible ? asset.value : '••••••'}</em></span><span className={`asset-change ${asset.change.startsWith('+') ? 'positive' : ''}`}>{asset.change}</span><ArrowRight className="asset-arrow" size={15} /></button>)}</div>
+}
+
+function EarnSummary({ onNavigate }: { onNavigate: (page: string) => void }) {
+  const [points, setPoints] = useState<number | null>(null)
+  const [loading, setLoading] = useState(Boolean(supabase))
+  const [errorMessage, setErrorMessage] = useState(() => supabase ? '' : 'Configura Supabase para consultar recompensas.')
+
+  useEffect(() => {
+    let active = true
+    if (!supabase) return
+    const client = supabase
+    void client.from('daily_faucet_accounts').select('points').maybeSingle().then(({ data, error }) => {
+      if (!active) return
+      if (error) setErrorMessage('No se pudo cargar el saldo de puntos.')
+      else setPoints(data?.points ?? 0)
+      setLoading(false)
+    })
+    return () => { active = false }
+  }, [])
+
+  return <div className="earn-panel">
+    <div className="panel-heading"><div><span className="section-kicker">RECOMPENSAS</span><h2>Tus puntos</h2></div><button className="text-link" onClick={() => onNavigate('Earn')}>Ver tareas <ArrowRight size={14} /></button></div>
+    <div className="earn-total"><span>Saldo promocional interno</span><strong>{loading ? '…' : points === null ? '—' : points.toLocaleString('es-ES')} <small>PTS</small></strong></div>
+    <div className="earn-progress-label"><span>Sin valor monetario ni retiros</span><button className="text-link" onClick={() => onNavigate('Historial')}>Historial</button></div>
+    <div className="earn-list">
+      <button className="earn-row" onClick={() => onNavigate('Faucets')}><span className="earn-brand blue">◉</span><span className="earn-info"><strong>Faucet diario</strong><small>Una reclamación cada 24 horas</small></span><span className="earn-reward">+10<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>
+      <button className="earn-row" onClick={() => onNavigate('Earn')}><span className="earn-brand lime">P</span><span className="earn-info"><strong>Completa tu perfil</strong><small>Correo confirmado · recompensa única</small></span><span className="earn-reward">+25<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>
+    </div>
+    {errorMessage && <p className="earn-summary-error" role="alert">{errorMessage}</p>}
+    <button className="earn-cta" onClick={() => onNavigate('Earn')}><Sparkles size={15} />Explorar tareas verificadas <ArrowRight size={15} /></button>
+  </div>
 }
 
 function SwapPreview() {
