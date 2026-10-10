@@ -46,6 +46,23 @@
 .icon-button, .subtle-icon { position: relative; width: 32px; height: 32px; display: inline-grid; place-items: center; border: 0; border-radius: 5px; color: #9b9d94; background: transparent; cursor: pointer; }
 .icon-button:hover, .subtle-icon:hover { color: var(--text); background: #ffffff0b; }
 .notification-button i { width: 5px; height: 5px; position: absolute; top: 6px; right: 7px; border: 1px solid #10120f; border-radius: 50%; background: var(--coral); }
+.notification-wrap { position: relative; }
+.notification-panel { width: min(330px, calc(100vw - 28px)); position: absolute; top: 41px; right: 0; z-index: 45; overflow: hidden; border: 1px solid #354963; border-radius: 6px; background: #17253a; box-shadow: 0 18px 48px #0008; animation: rise-in .16s ease-out; }
+.notification-panel-heading { display: flex; justify-content: space-between; align-items: center; padding: 13px 14px; border-bottom: 1px solid #2c3f57; }
+.notification-panel-heading > div { display: grid; gap: 4px; }
+.notification-panel-heading strong { color: #e1eaf4; font-size: 11px; }
+.notification-panel-heading > button { width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 4px; color: #9eafc2; background: transparent; cursor: pointer; }
+.notification-panel-heading > button:hover { background: #ffffff0b; }
+.notification-item { display: flex; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #293b52; }
+.notification-state { width: 7px; height: 7px; flex: none; margin-top: 4px; border-radius: 50%; background: #d5ad72; }
+.notification-state-ready { background: #9ed17f; }
+.notification-state-info { background: #77b6ff; }
+.notification-item > div { min-width: 0; display: grid; gap: 5px; }
+.notification-item strong { color: #dce7f3; font-size: 10px; }
+.notification-item small { color: #9aacc0; font-size: 9px; line-height: 1.5; }
+.notification-item > div > button { width: fit-content; display: flex; align-items: center; gap: 5px; padding: 2px 0; border: 0; color: #a9d0ff; background: transparent; font-size: 9px; cursor: pointer; }
+.notification-item > div > button:hover { color: #d2e7ff; }
+.notification-panel-footer { padding: 10px 14px; color: #8497ac; font-size: 8px; }
 .connect-button { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #3c4930; border-radius: 5px; color: var(--lime); background: #1b2117; font-size: 10px; font-weight: 600; cursor: pointer; }
 .connect-indicator { width: 6px; height: 6px; border-radius: 50%; background: #77796f; }
 .page-content { width: min(100%, 1460px); margin: 0 auto; padding: 35px 36px 24px; }
@@ -58,6 +75,8 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .welcome-subtitle, .section-view-heading p { color: #85877e; font-size: 11px; }
 .date-select { height: 33px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; color: #b9bbb1; background: #171915; font-size: 10px; cursor: pointer; }
 .date-select:hover { border-color: #454940; }
+.date-select select { max-width: 112px; border: 0; outline: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.date-select select option { color: #e4eaf1; background: #17253a; }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(340px, .82fr); gap: 14px; }
 .balance-panel, .earn-panel, .activity-panel, .season-panel, .asset-table, .clan-strip, .earn-feature, .swap-demo, .guild-panel, .developer-panel, .season-large { border: 1px solid var(--line); border-radius: 7px; background: linear-gradient(145deg, #191c17 0%, #151713 75%); }
 .balance-panel { position: relative; min-height: 385px; overflow: hidden; padding: 18px 20px 14px; }
@@ -280,6 +299,14 @@ h1 { margin: 10px 0 4px; color: #eeefe8; font: 500 26px/1.2 var(--display); lett
 .activity-offer-content dt { color: #9eafc2; }
 .activity-offer-content dd { margin: 0; color: #e0eaf5; text-align: right; }
 .activity-offer-content .game-safety-note { line-height: 1.5; }
+.asset-dialog-icon { width: 42px; height: 42px; margin-bottom: 14px; font-size: 19px; }
+.asset-detail-list { display: grid; margin-top: 12px; border-top: 1px solid #34465c; }
+.asset-detail-list > div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid #34465c; font-size: 10px; }
+.asset-detail-list span { color: #9eafc2; }
+.asset-detail-list strong { color: #e1eaf4; font-weight: 500; text-align: right; }
+.asset-detail-list .positive { color: #a8d78a; }
+.action-checklist { display: grid; gap: 8px; margin: 16px 0; padding-left: 20px; color: #c1d0e0; font-size: 10px; line-height: 1.5; }
+.action-checklist li::marker { color: #77b6ff; font-weight: 700; }
 .connect-button-active .connect-indicator { background: #77b6ff; box-shadow: 0 0 0 3px #77b6ff24; }
 .wallet-options { display: grid; gap: 7px; margin: 16px 0 12px; }
 .wallet-option { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #354963; border-radius: 5px; color: #d8e6f5; text-align: left; background: #17263a; cursor: pointer; }
