@@ -2,16 +2,14 @@ import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'rea
 import HomePage from './HomePage'
 import EarnPlayground from './EarnPlayground'
 import { supabase } from './lib/supabase'
-import { isWalletConnectConfigured } from './lib/wagmi'
 import type { Session } from '@supabase/supabase-js'
 import {
-  Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check, Copy,
+  Activity, ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, Blocks, CandlestickChart, Check,
   ChevronDown, Clock3, Code2, Coins, Eye, EyeOff, Flame, Gamepad2, Gift, Grid2X2,
   HandCoins, History, Link2, Megaphone, Menu, MousePointerClick, Plus, Search,
   Settings, ShieldCheck, Sparkles, Ticket, TrendingUp, Trophy, UserRound, Users, WalletCards,
   X,
 } from 'lucide-react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import './App.css'
 
 type NavItem = { label: string; icon: typeof Grid2X2 }
@@ -63,7 +61,7 @@ const heatmap = [
 ]
 const sectionCopy: Record<string, { eyebrow: string; title: string; description: string }> = {
   Cartera: { eyebrow: 'WALLET', title: 'Tu cartera.', description: 'Consulta por separado tus puntos promocionales reales y los balances cripto que todavía son solo una demo.' },
-  Depositar: { eyebrow: 'WALLET · ENTRADA', title: 'Depositar cripto.', description: 'Elige un activo y consulta la dirección de depósito y sus confirmaciones.' },
+  Depositar: { eyebrow: 'PAGO POR QR', title: 'Depositar por QR.', description: 'Preparamos depósitos con QR para enviar fondos sin conectar una wallet.' },
   Retirar: { eyebrow: 'WALLET · SALIDA', title: 'Retirar fondos.', description: 'Envía activos a una dirección externa con una revisión clara de red y comisión.' },
   Transferir: { eyebrow: 'WALLET · INTERNO', title: 'Transferir a un usuario.', description: 'Envía saldo a otra cuenta FaucetPay mediante transferencia interna.' },
   Exchange: { eyebrow: 'CONVERSIÓN', title: 'Exchange de criptomonedas.', description: 'Consulta los pares disponibles, el tipo de cambio y el coste antes de convertir.' },
@@ -104,7 +102,6 @@ export function DashboardPrototype() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [selectedAsset, setSelectedAsset] = useState<(typeof assets)[number] | null>(null)
   const [modal, setModal] = useState('')
-  const [walletDialogOpen, setWalletDialogOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsRead, setNotificationsRead] = useState(false)
   const [toast, setToast] = useState('')
@@ -115,7 +112,6 @@ export function DashboardPrototype() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [accountEmail, setAccountEmail] = useState('Cuenta')
   const [accountName, setAccountName] = useState('')
-  const { address, chain, isConnected } = useAccount()
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -158,10 +154,13 @@ export function DashboardPrototype() {
     window.setTimeout(() => setToast(''), 2800)
   }
   const selectPage = (label: string) => { setActivePage(label); setMobileMenuOpen(false) }
-  const openAction = (action: string) => setModal(action)
-  const copyWalletAddress = () => {
-    if (!address || !navigator.clipboard) return notify('No se pudo copiar la dirección.')
-    void navigator.clipboard.writeText(address).then(() => notify('Dirección copiada.')).catch(() => notify('No se pudo copiar la dirección.'))
+  const openAction = (action: string) => {
+    if (action === 'Depositar') {
+      setActivePage('Depositar')
+      setModal('')
+      return
+    }
+    setModal(action)
   }
   const signOut = async () => {
     if (!supabase) return notify('Supabase no está configurado.')
@@ -209,9 +208,9 @@ export function DashboardPrototype() {
             <div className="search-wrap"><label className="search-field"><Search size={16} /><input ref={searchInputRef} aria-label="Buscar secciones y actividades" aria-expanded={searchOpen} aria-controls="dashboard-search-results" placeholder="Buscar..." value={search} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearch(event.target.value); setSearchOpen(true) }} onKeyDown={(event) => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector<HTMLButtonElement>('[data-search-result]')?.focus() } }} /><kbd>⌘ K</kbd></label>{searchOpen && search.trim() && <div className="search-results" id="dashboard-search-results" role="listbox" aria-label="Resultados de búsqueda">{searchResults.length ? searchResults.map((result) => <button data-search-result role="option" aria-selected="false" key={`${result.page}-${result.label}`} onClick={() => { selectPage(result.page); setSearch(result.query); setSearchOpen(false); searchInputRef.current?.blur() }}><span><strong>{result.label}</strong><small>{result.detail}</small></span><ArrowRight size={14} /></button>) : <p>No hay secciones u ofertas coincidentes.</p>}</div>}</div>
             <div className="notification-wrap">
               <button className="icon-button notification-button" aria-label="Centro de actividad" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsRead(true) }}><Bell size={17} />{!notificationsRead && <i />}</button>
-              {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><div className="notification-item"><span className={`notification-state ${isConnected ? 'notification-state-ready' : ''}`} /><div><strong>{isConnected ? 'Wallet conectada' : 'Conecta una wallet'}</strong><small>{isConnected ? `${chain?.name ?? 'Red no identificada'} · ${address?.slice(0, 6)}…${address?.slice(-4)}` : 'Consulta dirección y red; conexión de solo lectura.'}</small>{!isConnected && <button onClick={() => { setNotificationsOpen(false); setWalletDialogOpen(true) }}>Conectar wallet <ArrowRight size={13} /></button>}</div></div><div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Proveedores Earn pendientes</strong><small>El faucet y la tarea de perfil acreditan puntos internos. Las ofertas externas todavía son demostraciones sin pagos.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver tareas <ArrowRight size={13} /></button></div></div><div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
+              {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><div className="notification-item"><span className="notification-state" /><div><strong>Depósitos por QR en preparación</strong><small>Estamos preparando depósitos con una dirección única por cuenta. No envíes fondos todavía.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Depositar') }}>Ver estado <ArrowRight size={13} /></button></div></div><div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Proveedores Earn pendientes</strong><small>El faucet y la tarea de perfil acreditan puntos internos. Las ofertas externas todavía son demostraciones sin pagos.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver tareas <ArrowRight size={13} /></button></div></div><div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
             </div>
-            <button className={`connect-button ${isConnected ? 'connect-button-active' : ''}`} onClick={() => setWalletDialogOpen(true)} aria-label={isConnected ? `Wallet conectada ${address}` : 'Conectar wallet'}><span className="connect-indicator" />{isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Conectar wallet'}</button>
+            <button className="connect-button" onClick={() => { setNotificationsOpen(false); selectPage('Depositar') }} aria-label="Depositar por QR"><span className="connect-indicator" />Depositar por QR</button>
           </div>
         </header>
         <div className="page-content">
@@ -243,7 +242,6 @@ export function DashboardPrototype() {
         </div>
       </main>
       <nav className="mobile-nav" aria-label="Navegación móvil">{['Resumen', 'Cartera', 'Faucets', 'Juegos'].map((label) => { const Icon = dashboardNav.flatMap((group) => group.items).find((item) => item.label === label)?.icon ?? Grid2X2; return <button key={label} className={activePage === label ? 'mobile-nav-active' : ''} onClick={() => selectPage(label)}><Icon size={19} /><span>{label}</span></button> })}</nav>
-      {walletDialogOpen && <WalletConnectionDialog address={address} chainName={chain?.name} isConnected={isConnected} onClose={() => setWalletDialogOpen(false)} onCopyAddress={copyWalletAddress} />}
       {selectedAsset && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedAsset(null) }}><section className="demo-modal asset-dialog" role="dialog" aria-modal="true" aria-labelledby="asset-dialog-title"><button className="modal-close" aria-label="Cerrar detalle de activo" onClick={() => setSelectedAsset(null)}><X size={18} /></button><span className={`coin-icon ${selectedAsset.color} asset-dialog-icon`}>{selectedAsset.icon}</span><span className="section-kicker">DETALLE DEL ACTIVO · DEMO</span><h2 id="asset-dialog-title">{selectedAsset.name}</h2><p>Datos de ejemplo. No representan saldos ni precios de una cuenta conectada.</p><div className="asset-detail-list"><div><span>Precio de referencia</span><strong>{selectedAsset.price}</strong></div><div><span>Balance de muestra</span><strong>{selectedAsset.amount} {selectedAsset.ticker}</strong></div><div><span>Valor estimado</span><strong>{selectedAsset.value}</strong></div><div><span>Variación ilustrativa 24 h</span><strong className={selectedAsset.change.startsWith('+') ? 'positive' : ''}>{selectedAsset.change}</strong></div></div><button className="modal-primary" onClick={() => { setSelectedAsset(null); selectPage('Depositar') }}>Ver opciones de depósito <ArrowRight size={15} /></button></section></div>}
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModal('') }}><section className="demo-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" aria-label="Cerrar" onClick={() => setModal('')}><X size={18} /></button><span className="modal-mark"><ShieldCheck size={20} /></span><span className="section-kicker">{isFundsAction ? `${modal.toUpperCase()} · REQUISITOS` : 'ENTORNO DE DEMOSTRACIÓN'}</span><h2 id="modal-title">{modal}</h2><p>{modal === 'Depositar' ? 'Todavía no se generan direcciones de depósito: falta conectar un proveedor de custodia o infraestructura de wallets.' : modal === 'Retirar' ? 'Los retiros están deshabilitados hasta integrar saldos reales, verificación de seguridad y un servicio de transacciones.' : 'Esta acción todavía no está conectada a una wallet ni a servicios financieros. No se realizará ninguna transacción.'}</p>{isFundsAction && <ol className="action-checklist">{fundsActionSteps.map((step) => <li key={step}><span>{step}</span></li>)}</ol>}<div className="modal-note"><span className="status-dot" />{isFundsAction ? 'No se crearán direcciones ni se moverán fondos en esta vista.' : 'Tus fondos no están en riesgo en esta vista previa.'}</div><button className="modal-primary" onClick={() => setModal('')}>Cerrar <Check size={16} /></button></section></div>}
       <div className={`toast ${toast ? 'toast-visible' : ''}`} role="status" aria-live="polite"><Check size={15} />{toast}</div>
@@ -251,37 +249,63 @@ export function DashboardPrototype() {
   )
 }
 
-function WalletConnectionDialog({ address, chainName, isConnected, onClose, onCopyAddress }: {
-  address?: string
-  chainName?: string
-  isConnected: boolean
-  onClose: () => void
-  onCopyAddress: () => void
-}) {
-  const { connectors, connect, isPending, error } = useConnect()
-  const { disconnect } = useDisconnect()
-  const errorMessage = error?.message.toLowerCase().includes('user rejected')
-    ? 'Cancelaste la conexión en la wallet. Puedes elegir otra opción.'
-    : error
-      ? 'No se pudo abrir esa wallet. Prueba otra opción o abre la web en el navegador de la wallet.'
-      : ''
+function DepositByQr() {
+  return <section className="deposit-qr-panel">
+    <div className="deposit-qr-header">
+      <div>
+        <span className="section-kicker">DEPÓSITO POR QR</span>
+        <h2>Deposita sin conectar tu wallet</h2>
+      </div>
+      <span className="deposit-badge">En preparación</span>
+    </div>
 
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="demo-modal wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title"><button className="modal-close" aria-label="Cerrar" onClick={onClose}><X size={18} /></button><span className="modal-mark"><WalletCards size={20} /></span><span className="section-kicker">{isConnected ? 'WALLET CONECTADA' : 'CONECTORES EVM'}</span><h2 id="wallet-dialog-title">{isConnected ? 'Tu wallet está conectada.' : 'Conecta tu wallet.'}</h2><p>{isConnected ? 'La app puede leer la dirección y la red activa. No firmará ni enviará transacciones.' : 'Elige una wallet y autoriza la conexión. Solo leeremos la dirección y la red; no firmaremos ni enviaremos transacciones.'}</p>
-    {isConnected && address ? <><div className="wallet-detail-row"><span>Dirección</span><code>{address.slice(0, 10)}…{address.slice(-8)}</code><button className="wallet-copy-button" aria-label="Copiar dirección" title="Copiar dirección" onClick={onCopyAddress}><Copy size={15} /></button></div><div className="wallet-detail-row"><span>Red activa</span><strong>{chainName ?? 'Red no reconocida'}</strong></div><div className="modal-note"><span className="status-dot" />Conexión de solo lectura. No se han solicitado permisos de firma.</div><button className="wallet-disconnect" onClick={() => { disconnect(); onClose() }}>Desconectar wallet</button></> : <><div className="wallet-options">{connectors.map((connector) => {
-      const name = connector.name
-      const lowerName = name.toLowerCase()
-      const description = lowerName.includes('metamask') ? 'Extensión o aplicación MetaMask'
-        : lowerName.includes('coinbase') ? 'Coinbase Wallet · extensión o aplicación'
-          : lowerName.includes('walletconnect') ? 'Escanea el QR con una wallet compatible'
-            : 'Rabby, Brave, Phantom y otras wallets del navegador'
-      return <button className="wallet-option" key={connector.uid} disabled={isPending} aria-busy={isPending} onClick={() => connect({ connector })}><span className="wallet-option-icon"><WalletCards size={18} /></span><span className="wallet-option-copy"><strong>{name}</strong><small>{description}</small></span>{isPending ? <span className="wallet-pending">Conectando…</span> : <ArrowRight size={16} />}</button>
-    })}</div>{errorMessage && <p className="wallet-error" role="alert">{errorMessage}</p>}{!isWalletConnectConfigured && <div className="wallet-setup-note"><strong>¿Conectar desde móvil con QR?</strong><span>Configura <code>VITE_WALLETCONNECT_PROJECT_ID</code> en Vercel para habilitar WalletConnect.</span></div>}<div className="modal-note"><span className="status-dot" />Conectar no permite mover fondos ni firmar mensajes.</div></>}
-  </section></div>
+    <div className="deposit-qr-layout">
+      <div className="deposit-qr-placeholder" aria-hidden="true">
+        <WalletCards size={36} />
+        <span>QR pendiente</span>
+      </div>
+
+      <div className="deposit-qr-info">
+        <strong>Los depósitos todavía no están habilitados.</strong>
+        <p>Conectaremos un proveedor que genere una dirección única y un QR para tu cuenta. No envíes fondos a direcciones compartidas o de prueba.</p>
+        <div className="deposit-qr-supported">
+          <span>Sin conexión de wallet</span>
+          <span>Sin dirección activa</span>
+          <span>Sin acreditación automática</span>
+        </div>
+      </div>
+    </div>
+
+    <div className="deposit-qr-steps">
+      <div><strong>1</strong><span>Selecciona un activo y una red compatibles.</span></div>
+      <div><strong>2</strong><span>Escanea el QR único o copia la dirección de tu cuenta.</span></div>
+      <div><strong>3</strong><span>El proveedor confirma la transacción y el servidor acredita el saldo.</span></div>
+    </div>
+  </section>
 }
 
 function AssetPortfolio({ balanceVisible, onSelect }: { balanceVisible: boolean; onSelect: (asset: (typeof assets)[number]) => void }) {
   return <div className="asset-table"><div className="asset-head"><span>ACTIVO</span><span>PRECIO DEMO</span><span>BALANCE DEMO</span><span>CAMBIO</span><span /></div>{assets.map((asset) => <button key={asset.ticker} className="asset-row" onClick={() => onSelect(asset)}><span className="asset-name"><span className={`coin-icon ${asset.color}`}>{asset.icon}</span><span><strong>{asset.ticker}</strong><small>{asset.name}</small></span></span><span className="asset-price">{asset.price}</span><span className="asset-balance"><strong>{asset.amount} <small>{asset.ticker}</small></strong><em>{balanceVisible ? asset.value : '••••••'}</em></span><span className={`asset-change ${asset.change.startsWith('+') ? 'positive' : ''}`}>{asset.change}</span><ArrowRight className="asset-arrow" size={15} /></button>)}</div>
 }
+
+const EARN_TASKS = [
+  {
+    key: 'complete_profile',
+    title: 'Completa tu perfil',
+    description: 'Confirma tu correo y añade un nombre visible en Perfil. Recompensa única.',
+    reward: 25,
+    requirement: 'Correo confirmado · nombre visible',
+    enabled: true,
+  },
+  {
+    key: 'community_join',
+    title: 'Únete a la comunidad',
+    description: 'Acepta la regla de la comunidad y participa en el canal oficial del proyecto.',
+    reward: 50,
+    requirement: 'Próximamente',
+    enabled: false,
+  },
+] as const
 
 function EarnSummary({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [points, setPoints] = useState<number | null>(null)
@@ -301,13 +325,15 @@ function EarnSummary({ onNavigate }: { onNavigate: (page: string) => void }) {
     return () => { active = false }
   }, [])
 
+  const visibleEarnTasks = EARN_TASKS.filter((task) => task.enabled)
+
   return <div className="earn-panel">
     <div className="panel-heading"><div><span className="section-kicker">RECOMPENSAS</span><h2>Tus puntos</h2></div><button className="text-link" onClick={() => onNavigate('Earn')}>Ver tareas <ArrowRight size={14} /></button></div>
     <div className="earn-total"><span>Saldo promocional interno</span><strong>{loading ? '…' : points === null ? '—' : points.toLocaleString('es-ES')} <small>PTS</small></strong></div>
     <div className="earn-progress-label"><span>Sin valor monetario ni retiros</span><button className="text-link" onClick={() => onNavigate('Historial')}>Historial</button></div>
     <div className="earn-list">
       <button className="earn-row" onClick={() => onNavigate('Faucets')}><span className="earn-brand blue">◉</span><span className="earn-info"><strong>Faucet diario</strong><small>Una reclamación cada 24 horas</small></span><span className="earn-reward">+10<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>
-      <button className="earn-row" onClick={() => onNavigate('Earn')}><span className="earn-brand lime">P</span><span className="earn-info"><strong>Completa tu perfil</strong><small>Correo confirmado · recompensa única</small></span><span className="earn-reward">+25<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>
+      {visibleEarnTasks.map((task) => <button key={task.key} className="earn-row" onClick={() => onNavigate('Earn')}><span className="earn-brand lime">P</span><span className="earn-info"><strong>{task.title}</strong><small>{task.requirement}</small></span><span className="earn-reward">+{task.reward}<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>)}
     </div>
     {errorMessage && <p className="earn-summary-error" role="alert">{errorMessage}</p>}
     <button className="earn-cta" onClick={() => onNavigate('Earn')}><Sparkles size={15} />Explorar tareas verificadas <ArrowRight size={15} /></button>
@@ -350,6 +376,7 @@ function SectionView({ page, onAction, onNavigate, onAssetSelect, earnFilter, se
   return <section className="section-view">
     <div className="section-view-heading"><div><div className="eyebrow"><span className="live-dot" /> {copy.eyebrow} {page === 'Faucets' ? <span className="demo-tag">PUNTOS INTERNOS</span> : ['Offerwalls', 'Shortlinks', 'PTC'].includes(page) ? <span className="demo-tag">SIN CONECTAR</span> : <span className="demo-tag">DEMO</span>}</div><h1>{copy.title}</h1><p>{copy.description}</p></div><button className="date-select" onClick={() => onNavigate('Resumen')}><Grid2X2 size={15} />Volver al resumen</button></div>
     {selectedActivity ? <EarnPlayground {...selectedActivity} onBack={() => setSelectedActivity(null)} />
+      : page === 'Depositar' ? <DepositByQr />
       : page === 'Faucets' ? <DailyFaucet />
       : page === 'Cartera' ? <><PointsWallet onNavigate={onNavigate} /><div className="notice-line"><ShieldCheck size={16} /><span>Los saldos y precios cripto siguientes son ilustrativos; no representan activos depositados ni retirables.</span></div><AssetPortfolio balanceVisible onSelect={onAssetSelect} /></>
       : page === 'Historial' ? <PointsWallet showHistory />
@@ -444,7 +471,7 @@ function PointsWallet({ showHistory = false, onNavigate }: { showHistory?: boole
 function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [loading, setLoading] = useState(true)
   const [hasSession, setHasSession] = useState(false)
-  const [completed, setCompleted] = useState(false)
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState(false)
   const [balance, setBalance] = useState<number | null>(null)
   const [ledger, setLedger] = useState<RewardLedgerEntry[]>([])
@@ -474,17 +501,24 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
         }
         if (active) setHasSession(true)
 
+        const enabledTaskKeys = EARN_TASKS.filter((task) => task.enabled).map((task) => task.key)
         const [accountResult, completionResult, ledgerResult] = await Promise.all([
           supabase.from('daily_faucet_accounts').select('points').maybeSingle(),
-          supabase.from('earn_task_completions').select('task_key').eq('task_key', 'complete_profile').maybeSingle(),
+          enabledTaskKeys.length
+            ? supabase.from('earn_task_completions').select('task_key, reward, completed_at').in('task_key', enabledTaskKeys)
+            : Promise.resolve({ data: [], error: null }),
           supabase.from('reward_ledger').select('id, source_type, points, balance_after, created_at').order('created_at', { ascending: false }).limit(10),
         ])
         if (accountResult.error) throw accountResult.error
-        if (completionResult.error) throw completionResult.error
+        if (completionResult && 'error' in completionResult && completionResult.error) throw completionResult.error
         if (ledgerResult.error) throw ledgerResult.error
         if (!active) return
+
+        const completionMap = new Map((completionResult && 'data' in completionResult ? completionResult.data ?? [] : []).map((item: { task_key: string }) => [item.task_key, true]))
+        const nextTaskStatuses = Object.fromEntries(EARN_TASKS.map((task) => [task.key, task.enabled && Boolean(completionMap.has(task.key))]))
+
         setBalance(accountResult.data?.points ?? 0)
-        setCompleted(Boolean(completionResult.data))
+        setTaskStatuses(nextTaskStatuses)
         setLedger(ledgerResult.data ?? [])
       } catch {
         if (active) setErrorMessage('No se pudo cargar el estado de las tareas. Comprueba que aplicaste todas las migraciones.')
@@ -497,13 +531,16 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
     return () => { active = false }
   }, [])
 
-  const completeProfileTask = async () => {
-    if (!supabase || !hasSession || completed || busy) return
+  const completeEarnTask = async (taskKey: string) => {
+    const taskDefinition = EARN_TASKS.find((task) => task.key === taskKey)
+    if (!supabase || !hasSession || !taskDefinition || !taskDefinition.enabled || taskStatuses[taskKey] || busy) return
+
     setBusy(true)
     setMessage('')
     setErrorMessage('')
+
     try {
-      const { data, error } = await supabase.rpc('complete_earn_task', { task_key: 'complete_profile' })
+      const { data, error } = await supabase.rpc('complete_earn_task', { task_key: taskKey })
       if (error) {
         if (error.code === '22023') {
           setErrorMessage('Confirma tu correo y guarda un nombre visible en Perfil antes de reclamar esta recompensa.')
@@ -513,11 +550,13 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
       }
       const result = data?.[0]
       if (!result) throw new Error('El servidor no devolvió el estado de la tarea.')
-      setCompleted(true)
+
+      setTaskStatuses((current) => ({ ...current, [taskKey]: true }))
       setBalance(result.balance)
+
       if (result.awarded) {
         const entry: RewardLedgerEntry = {
-          id: -Date.now(),
+          id: -Date.parse(result.completed_at),
           source_type: 'earn_task',
           points: result.reward,
           balance_after: result.balance,
@@ -525,6 +564,7 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
         }
         setLedger((entries) => [entry, ...entries].slice(0, 10))
       }
+
       setMessage(result.awarded ? `¡Tarea completada! +${result.reward} puntos internos.` : 'Esta tarea ya estaba completada.')
     } catch {
       setErrorMessage('No se pudo completar la tarea. Comprueba la conexión e inténtalo de nuevo.')
@@ -535,14 +575,25 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
 
   return <section className="earn-tasks">
     <div className="earn-tasks-heading"><div><span className="section-kicker">TAREAS CON RECOMPENSA INTERNA</span><h2>Progreso de tu cuenta</h2></div><span className="earn-tasks-balance">{balance === null ? '—' : balance.toLocaleString('es-ES')} puntos</span></div>
+    {EARN_TASKS.map((task, index) => {
+      const isCompleted = Boolean(taskStatuses[task.key])
+      const isDisabled = !task.enabled || loading || busy || isCompleted || !hasSession
+
+      return <div className="earn-task-row" key={task.key}>
+        <span className="earn-task-number">{String(index + 1).padStart(2, '0')}</span>
+        <div className="earn-task-copy"><strong>{task.title}</strong><small>{task.description}</small></div>
+        <span className="earn-task-reward">+{task.reward} puntos</span>
+        <button className="action-secondary" disabled={isDisabled} onClick={() => void (task.enabled ? completeEarnTask(task.key) : undefined)}>{
+          loading ? 'Cargando…'
+            : busy ? 'Verificando…'
+              : !task.enabled ? 'Próximamente'
+                : isCompleted ? 'Completada'
+                  : 'Reclamar'}
+        </button>
+      </div>
+    })}
     <div className="earn-task-row">
-      <span className="earn-task-number">01</span>
-      <div className="earn-task-copy"><strong>Completa tu perfil</strong><small>Confirma tu correo y añade un nombre visible en Perfil. Recompensa única.</small></div>
-      <span className="earn-task-reward">+25 puntos</span>
-      <button className="action-secondary" disabled={loading || busy || completed || !hasSession} onClick={() => void completeProfileTask()}>{loading ? 'Cargando…' : busy ? 'Verificando…' : completed ? 'Completada' : 'Reclamar'}</button>
-    </div>
-    <div className="earn-task-row">
-      <span className="earn-task-number">02</span>
+      <span className="earn-task-number">03</span>
       <div className="earn-task-copy"><strong>Reclama el faucet diario</strong><small>Disponible cada 24 horas · una recompensa por cuenta.</small></div>
       <span className="earn-task-reward">+10 puntos</span>
       <button className="action-secondary" disabled={!hasSession} onClick={() => onNavigate('Faucets')}>Abrir faucet <ArrowRight size={13} /></button>
