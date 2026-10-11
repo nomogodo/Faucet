@@ -222,9 +222,18 @@ export default function HomePage() {
 
   const signOut = async () => {
     if (!supabase) return
-    const { error } = await supabase.auth.signOut()
-    if (error) setAuthError(error.message)
-    else setAuthMessage('Sesión cerrada.')
+    setAuthBusy(true)
+    setAuthError('')
+    setAuthMessage('')
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      setAuthMessage('Sesión cerrada. Ya puedes revisar el correo de confirmación.')
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'No se pudo cerrar la sesión.')
+    } finally {
+      setAuthBusy(false)
+    }
   }
 
   return (
@@ -390,6 +399,7 @@ export default function HomePage() {
             {authError && <p className="auth-feedback auth-feedback-error" role="alert">{authError}</p>}
             {canResendConfirmation && <button className="auth-text-button" type="button" disabled={authBusy || !authEmail.trim()} onClick={() => void resendConfirmation()}>{authBusy ? 'Enviando…' : 'Reenviar correo de verificación'}</button>}
             {authMessage && <p className="auth-feedback auth-feedback-success" role="status">{authMessage}</p>}
+            {authMode === 'signup' && signedInEmail && <button className="auth-signout-button" type="button" disabled={authBusy} onClick={() => void signOut()}><LogOut size={14} />{authBusy ? 'Cerrando sesión…' : 'Cerrar sesión para revisar el correo'}</button>}
             <button className="auth-submit" type="submit" disabled={!isSupabaseConfigured || authBusy}>{authBusy ? 'Procesando…' : authMode === 'signup' ? 'Crear cuenta' : authMode === 'recovery' ? 'Enviar enlace' : authMode === 'update-password' ? 'Guardar contraseña' : 'Iniciar sesión'} <ArrowRight size={15} /></button>
           </form>
           <div className="auth-switch">{authMode === 'recovery' || authMode === 'update-password' ? <button className="auth-text-button" type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMessage('') }}>Volver a iniciar sesión</button> : <>{authMode === 'signup' ? '¿Ya tienes cuenta?' : '¿Primera vez por aquí?'} <button className="auth-text-button" type="button" onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setAuthError(''); setAuthMessage('') }}>{authMode === 'signup' ? 'Inicia sesión' : 'Crear cuenta'}</button></>}</div>
