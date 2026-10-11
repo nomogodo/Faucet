@@ -188,7 +188,10 @@ export default function HomePage() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo completar la solicitud. Inténtalo de nuevo.'
-      if (authMode === 'login' && message.toLowerCase().includes('email not confirmed')) {
+      const normalizedMessage = message.toLowerCase()
+      if (authMode === 'signup' && normalizedMessage.includes('error sending confirmation email')) {
+        setAuthError('Supabase no pudo enviar el correo. El SMTP de prueba solo entrega a correos del equipo y tiene un límite bajo. Configura un SMTP propio en Supabase → Authentication → SMTP Settings.')
+      } else if (authMode === 'login' && normalizedMessage.includes('email not confirmed')) {
         setAuthError('Tu correo todavía no está confirmado.')
         setCanResendConfirmation(true)
       } else {
@@ -214,7 +217,10 @@ export default function HomePage() {
       setCanResendConfirmation(false)
       setAuthMessage('Solicitud enviada. Revisa la bandeja de entrada y el spam.')
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'No se pudo reenviar el correo. Inténtalo de nuevo.')
+      const message = error instanceof Error ? error.message : ''
+      setAuthError(message.toLowerCase().includes('error sending confirmation email')
+        ? 'Supabase no pudo enviar el correo. Configura un SMTP propio en Supabase → Authentication → SMTP Settings y vuelve a intentarlo.'
+        : message || 'No se pudo reenviar el correo. Inténtalo de nuevo.')
     } finally {
       setAuthBusy(false)
     }

@@ -20,6 +20,10 @@ Verificaciones disponibles: `npm run build` y `npm run lint`. La build genera un
 3. En Supabase, habilita el proveedor Email en **Authentication → Providers** y configura las URLs de sitio/redirección para el origen local (`http://localhost:5173`) y el dominio de producción.
 4. Reinicia Vite. El indicador del pie de página consulta `profiles` y distingue conexión, migración pendiente y credenciales sin configurar.
 
+### Correo de confirmación
+
+El SMTP predeterminado de Supabase es solo para pruebas: solo envía a direcciones del equipo del proyecto y tiene un límite reducido. Para entregar correo a usuarios, configura un proveedor SMTP propio en **Authentication → SMTP Settings**. No agregues usuarios de la aplicación como miembros del equipo de Supabase para eludir esta restricción, ya que eso les concede acceso al proyecto.
+
 ## Depósitos por QR
 
 El dashboard no requiere conectar una wallet para depositar. La vista de depósitos por QR está diseñada, pero permanece deshabilitada hasta integrar un proveedor que genere direcciones únicas por cuenta, detecte confirmaciones y acredite fondos en el servidor. No configures una dirección compartida estática ni envíes fondos a direcciones de prueba: sin esa integración no se pueden identificar ni acreditar depósitos.
