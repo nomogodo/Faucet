@@ -112,6 +112,28 @@ export function DashboardPrototype() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [accountEmail, setAccountEmail] = useState('Cuenta')
   const [accountName, setAccountName] = useState('')
+  const [dismissedNotices, setDismissedNotices] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!supabase) return
+    let active = true
+    void supabase.from('user_notices').select('notice_key').then(({ data, error }) => {
+      if (active && !error) setDismissedNotices((data ?? []).map((row: { notice_key: string }) => row.notice_key))
+    })
+    return () => { active = false }
+  }, [])
+
+  const dismissNotice = (noticeKey: 'deposit_qr_pending' | 'offerwall_providers_pending') => {
+    setDismissedNotices((current) => current.includes(noticeKey) ? current : [...current, noticeKey])
+    if (!supabase) return
+    const client = supabase
+    void client.auth.getUser().then(({ data }) => {
+      if (data.user) void client.from('user_notices').insert({ user_id: data.user.id, notice_key: noticeKey }).then(({ error }) => {
+        // Si el alta fallara (por ejemplo, migración pendiente), el aviso solo volvería tras recargar.
+        if (error) console.warn('No se pudo persistir el aviso descartado:', error.message)
+      })
+    })
+  }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -207,8 +229,8 @@ export function DashboardPrototype() {
           <div className="topbar-actions">
             <div className="search-wrap"><label className="search-field"><Search size={16} /><input ref={searchInputRef} aria-label="Buscar secciones y actividades" aria-expanded={searchOpen} aria-controls="dashboard-search-results" placeholder="Buscar..." value={search} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearch(event.target.value); setSearchOpen(true) }} onKeyDown={(event) => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector<HTMLButtonElement>('[data-search-result]')?.focus() } }} /><kbd>⌘ K</kbd></label>{searchOpen && search.trim() && <div className="search-results" id="dashboard-search-results" role="listbox" aria-label="Resultados de búsqueda">{searchResults.length ? searchResults.map((result) => <button data-search-result role="option" aria-selected="false" key={`${result.page}-${result.label}`} onClick={() => { selectPage(result.page); setSearch(result.query); setSearchOpen(false); searchInputRef.current?.blur() }}><span><strong>{result.label}</strong><small>{result.detail}</small></span><ArrowRight size={14} /></button>) : <p>No hay secciones u ofertas coincidentes.</p>}</div>}</div>
             <div className="notification-wrap">
-              <button className="icon-button notification-button" aria-label="Centro de actividad" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsRead(true) }}><Bell size={17} />{!notificationsRead && <i />}</button>
-              {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><div className="notification-item"><span className="notification-state" /><div><strong>Depósitos por QR en preparación</strong><small>Estamos preparando depósitos con una dirección única por cuenta. No envíes fondos todavía.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Depositar') }}>Ver estado <ArrowRight size={13} /></button></div></div><div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Proveedores Earn pendientes</strong><small>El faucet y la tarea de perfil acreditan puntos internos. Las ofertas externas todavía son demostraciones sin pagos.</small><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver tareas <ArrowRight size={13} /></button></div></div><div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
+              <button className="icon-button notification-button" aria-label="Centro de actividad" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsRead(true) }}><Bell size={17} />{(!notificationsRead || dismissedNotices.length === 0) && <i />}</button>
+              {notificationsOpen && <section className="notification-panel" aria-label="Centro de actividad"><div className="notification-panel-heading"><div><span className="section-kicker">CUENTA</span><strong>Centro de actividad</strong></div><button aria-label="Cerrar centro de actividad" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div>{!dismissedNotices.includes('deposit_qr_pending') && <div className="notification-item"><span className="notification-state" /><div><strong>Depósitos por QR en preparación</strong><small>Estamos preparando depósitos con una dirección única por cuenta. No envíes fondos todavía.</small><span className="notification-actions"><button onClick={() => { setNotificationsOpen(false); selectPage('Depositar') }}>Ver estado <ArrowRight size={13} /></button><button onClick={() => dismissNotice('deposit_qr_pending')}>Descartar</button></span></div></div>}{!dismissedNotices.includes('offerwall_providers_pending') && <div className="notification-item"><span className="notification-state notification-state-info" /><div><strong>Proveedores Earn pendientes</strong><small>El faucet, las rachas y las tareas internas acreditan puntos internos. Las ofertas externas todavía son demostraciones sin pagos.</small><span className="notification-actions"><button onClick={() => { setNotificationsOpen(false); selectPage('Earn') }}>Ver tareas <ArrowRight size={13} /></button><button onClick={() => dismissNotice('offerwall_providers_pending')}>Descartar</button></span></div></div>}{dismissedNotices.length >= 2 && <p className="reward-history-empty">No hay avisos activos.</p>}<div className="notification-panel-footer">Estado de integraciones, no notificaciones de transacciones.</div></section>}
             </div>
             <button className="connect-button" onClick={() => { setNotificationsOpen(false); selectPage('Depositar') }} aria-label="Depositar por QR"><span className="connect-indicator" />Depositar por QR</button>
           </div>
@@ -298,6 +320,22 @@ const EARN_TASKS = [
     enabled: true,
   },
   {
+    key: 'first_daily_claim',
+    title: 'Reclama tu primer faucet diario',
+    description: 'Abre Faucets y reclama tu recompensa diaria de puntos. El servidor verifica la reclamación.',
+    reward: 15,
+    requirement: 'Una reclamación registrada en el faucet',
+    enabled: true,
+  },
+  {
+    key: 'enable_two_factor',
+    title: 'Activa la verificación en dos pasos',
+    description: 'Registra una app autenticadora TOTP desde Seguridad. El servidor confirma el factor verificado.',
+    reward: 40,
+    requirement: 'Factor TOTP verificado',
+    enabled: true,
+  },
+  {
     key: 'community_join',
     title: 'Únete a la comunidad',
     description: 'Acepta la regla de la comunidad y participa en el canal oficial del proyecto.',
@@ -306,6 +344,12 @@ const EARN_TASKS = [
     enabled: false,
   },
 ] as const
+
+const taskLabels: Record<string, string> = {
+  complete_profile: 'Tarea: perfil completo',
+  first_daily_claim: 'Tarea: primer faucet',
+  enable_two_factor: 'Tarea: dos factores',
+}
 
 function EarnSummary({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [points, setPoints] = useState<number | null>(null)
@@ -332,7 +376,7 @@ function EarnSummary({ onNavigate }: { onNavigate: (page: string) => void }) {
     <div className="earn-total"><span>Saldo promocional interno</span><strong>{loading ? '…' : points === null ? '—' : points.toLocaleString('es-ES')} <small>PTS</small></strong></div>
     <div className="earn-progress-label"><span>Sin valor monetario ni retiros</span><button className="text-link" onClick={() => onNavigate('Historial')}>Historial</button></div>
     <div className="earn-list">
-      <button className="earn-row" onClick={() => onNavigate('Faucets')}><span className="earn-brand blue">◉</span><span className="earn-info"><strong>Faucet diario</strong><small>Una reclamación cada 24 horas</small></span><span className="earn-reward">+10<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>
+      <button className="earn-row" onClick={() => onNavigate('Faucets')}><span className="earn-brand blue">◉</span><span className="earn-info"><strong>Faucet diario</strong><small>Una reclamación cada 24 horas · bono por racha</small></span><span className="earn-reward">+10<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>
       {visibleEarnTasks.map((task) => <button key={task.key} className="earn-row" onClick={() => onNavigate('Earn')}><span className="earn-brand lime">P</span><span className="earn-info"><strong>{task.title}</strong><small>{task.requirement}</small></span><span className="earn-reward">+{task.reward}<small>PTS</small></span><ArrowRight className="earn-arrow" size={14} /></button>)}
     </div>
     {errorMessage && <p className="earn-summary-error" role="alert">{errorMessage}</p>}
@@ -414,9 +458,17 @@ const moduleOptions: Record<string, { metric: string; value: string; caption: st
 type RewardLedgerEntry = {
   id: number
   source_type: 'daily_faucet' | 'earn_task' | 'offerwall'
+  source_id: number
+  task_key?: string
   points: number
   balance_after: number
   created_at: string
+}
+
+function rewardSourceLabel(entry: Pick<RewardLedgerEntry, 'source_type' | 'task_key'>): string {
+  if (entry.source_type === 'daily_faucet') return 'Faucet diario'
+  if (entry.source_type === 'earn_task') return entry.task_key ? (taskLabels[entry.task_key] ?? 'Tarea interna') : 'Tarea interna'
+  return 'Oferta de proveedor'
 }
 
 function PointsWallet({ showHistory = false, onNavigate }: { showHistory?: boolean; onNavigate?: (page: string) => void }) {
@@ -437,7 +489,7 @@ function PointsWallet({ showHistory = false, onNavigate }: { showHistory?: boole
       try {
         const [accountResult, ledgerResult] = await Promise.all([
           supabase.from('daily_faucet_accounts').select('points').maybeSingle(),
-          supabase.from('reward_ledger').select('id, source_type, points, balance_after, created_at').order('created_at', { ascending: false }).limit(50),
+          supabase.from('reward_ledger').select('id, source_type, source_id, points, balance_after, created_at').order('created_at', { ascending: false }).limit(50),
         ])
         if (accountResult.error) throw accountResult.error
         if (ledgerResult.error) throw ledgerResult.error
@@ -462,7 +514,7 @@ function PointsWallet({ showHistory = false, onNavigate }: { showHistory?: boole
     {showHistory && (loading
       ? <p className="reward-history-empty">Cargando movimientos…</p>
       : ledger.length
-        ? <div className="points-wallet-history">{ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : entry.source_type === 'earn_task' ? 'Tarea: perfil completo' : 'Oferta de proveedor'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>)}</div>
+        ? <div className="points-wallet-history">{ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{rewardSourceLabel(entry)}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>)}</div>
         : !errorMessage && <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>)}
     {!showHistory && onNavigate && <button className="text-link points-wallet-link" onClick={() => onNavigate('Historial')}>Ver historial de puntos <ArrowRight size={13} /></button>}
   </section>
@@ -507,7 +559,7 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
           enabledTaskKeys.length
             ? supabase.from('earn_task_completions').select('task_key, reward, completed_at').in('task_key', enabledTaskKeys)
             : Promise.resolve({ data: [], error: null }),
-          supabase.from('reward_ledger').select('id, source_type, points, balance_after, created_at').order('created_at', { ascending: false }).limit(10),
+          supabase.from('reward_ledger').select('id, source_type, source_id, points, balance_after, created_at').order('created_at', { ascending: false }).limit(10),
         ])
         if (accountResult.error) throw accountResult.error
         if (completionResult && 'error' in completionResult && completionResult.error) throw completionResult.error
@@ -543,7 +595,13 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
       const { data, error } = await supabase.rpc('complete_earn_task', { task_key: taskKey })
       if (error) {
         if (error.code === '22023') {
-          setErrorMessage('Confirma tu correo y guarda un nombre visible en Perfil antes de reclamar esta recompensa.')
+          if (taskKey === 'enable_two_factor') {
+            setErrorMessage('Registra y verifica una app autenticadora en Seguridad antes de reclamar esta recompensa.')
+          } else if (taskKey === 'first_daily_claim') {
+            setErrorMessage('Reclama primero tu faucet diario en la sección Faucets antes de completar esta tarea.')
+          } else {
+            setErrorMessage('Confirma tu correo y guarda un nombre visible en Perfil antes de reclamar esta recompensa.')
+          }
           return
         }
         throw error
@@ -558,6 +616,8 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
         const entry: RewardLedgerEntry = {
           id: -Date.parse(result.completed_at),
           source_type: 'earn_task',
+          source_id: 0,
+          task_key: taskKey,
           points: result.reward,
           balance_after: result.balance,
           created_at: result.completed_at,
@@ -593,7 +653,7 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
       </div>
     })}
     <div className="earn-task-row">
-      <span className="earn-task-number">03</span>
+      <span className="earn-task-number">{String(EARN_TASKS.length + 1).padStart(2, '0')}</span>
       <div className="earn-task-copy"><strong>Reclama el faucet diario</strong><small>Disponible cada 24 horas · una recompensa por cuenta.</small></div>
       <span className="earn-task-reward">+10 puntos</span>
       <button className="action-secondary" disabled={!hasSession} onClick={() => onNavigate('Faucets')}>Abrir faucet <ArrowRight size={13} /></button>
@@ -602,13 +662,14 @@ function EarnTasks({ onNavigate }: { onNavigate: (page: string) => void }) {
     {hasSession && errorMessage && <p className="profile-feedback-error" role="alert">{errorMessage}</p>}
     {message && <p className="profile-feedback" role="status">{message}</p>}
     <p className="earn-task-disclaimer"><ShieldCheck size={14} />Puntos promocionales internos, sin valor monetario ni conversión o retiro en cripto.</p>
-    {hasSession && <div className="reward-history"><div className="reward-history-heading"><span className="section-kicker">ACTIVIDAD RECIENTE</span><strong>Historial de puntos</strong></div>{ledger.length ? ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{entry.source_type === 'daily_faucet' ? 'Faucet diario' : entry.source_type === 'earn_task' ? 'Tarea: perfil completo' : 'Oferta de proveedor'}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>) : <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>}</div>}
+    {hasSession && <div className="reward-history"><div className="reward-history-heading"><span className="section-kicker">ACTIVIDAD RECIENTE</span><strong>Historial de puntos</strong></div>{ledger.length ? ledger.map((entry) => <div className="reward-history-row" key={entry.id}><span><strong>{rewardSourceLabel(entry)}</strong><small>{new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.created_at))}</small></span><strong>+{entry.points} <small>· saldo {entry.balance_after}</small></strong></div>) : <p className="reward-history-empty">Todavía no hay recompensas acreditadas.</p>}</div>}
   </section>
 }
 
 function DailyFaucet() {
   const [points, setPoints] = useState<number | null>(null)
   const [lastClaimAt, setLastClaimAt] = useState<string | null>(null)
+  const [streak, setStreak] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [hasSession, setHasSession] = useState(false)
@@ -637,15 +698,19 @@ function DailyFaucet() {
         }
         if (active) setHasSession(true)
 
-        const [accountResult, claimResult] = await Promise.all([
+        const [accountResult, claimResult, streakResult] = await Promise.all([
           supabase.from('daily_faucet_accounts').select('points').maybeSingle(),
           supabase.from('daily_faucet_claims').select('claimed_at').order('claimed_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('daily_faucet_streaks').select('current_streak, last_claim_date').maybeSingle(),
         ])
         if (accountResult.error) throw accountResult.error
         if (claimResult.error) throw claimResult.error
+        if (streakResult.error) throw streakResult.error
         if (!active) return
         setPoints(accountResult.data?.points ?? 0)
         setLastClaimAt(claimResult.data?.claimed_at ?? null)
+        const todayUtc = new Date().toISOString().slice(0, 10)
+        setStreak(streakResult.data && streakResult.data.last_claim_date === todayUtc ? streakResult.data.current_streak : 0)
       } catch {
         if (active) setErrorMessage('No se pudo cargar el saldo o el historial del faucet. Revisa la migración de Supabase e inténtalo de nuevo.')
       } finally {
@@ -679,8 +744,11 @@ function DailyFaucet() {
       if (!result) throw new Error('El servidor no devolvió el estado de la recompensa.')
       setPoints(result.balance)
       setLastClaimAt(result.last_claim_at)
+      if (result.claimed) setStreak(result.current_streak)
       setFeedback(result.claimed
-        ? `¡Recompensa acreditada! +${result.reward} puntos internos.`
+        ? result.bonus > 0
+          ? `¡Recompensa acreditada! +${result.reward} puntos internos (+10 base, +${result.bonus} por racha de ${result.current_streak} días).`
+          : '¡Recompensa acreditada! +10 puntos internos.'
         : 'Esta cuenta ya reclamó la recompensa. Vuelve cuando termine el contador.')
     } catch {
       setErrorMessage('No se pudo reclamar la recompensa. Comprueba la conexión e inténtalo de nuevo.')
@@ -700,7 +768,7 @@ function DailyFaucet() {
       <div className="daily-faucet-balance"><span>TU SALDO</span><strong>{points === null ? '—' : points.toLocaleString('es-ES')}</strong><small>puntos internos</small></div>
     </div>
     <div className="daily-faucet-action">
-      <div><strong>{loading ? 'Comprobando disponibilidad…' : available ? 'Tu recompensa está lista' : `Próxima recompensa en ${countdown}`}</strong><small>10 puntos internos · una reclamación cada 24 horas</small></div>
+      <div><strong>{loading ? 'Comprobando disponibilidad…' : available ? 'Tu recompensa está lista' : `Próxima recompensa en ${countdown}`}</strong><small>10 puntos internos + bono de racha · una reclamación cada 24 horas{streak !== null && hasSession ? ` · racha actual: ${streak} día${streak === 1 ? '' : 's'}` : ''}</small></div>
       <button className="action-primary" disabled={loading || busy || !hasSession || !available} onClick={() => void claimReward()}>{busy ? 'Acreditando…' : available ? 'Reclamar 10 puntos' : 'Recompensa reclamada'}<Gift size={15} /></button>
     </div>
     {!hasSession && !loading && <p className="daily-faucet-message" role="status">{errorMessage}<button className="text-link" onClick={() => window.location.assign('/?login=1')}>Iniciar sesión <ArrowRight size={13} /></button></p>}
